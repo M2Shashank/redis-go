@@ -23,7 +23,15 @@ func main() {
 }
 
 func handleConn(conn net.Conn) {
-	defer conn.Close()
+	var buff []byte = make([]byte, 1024)
 
-	conn.Write([]byte("+PONG\r\n"))
+	for {
+		_, err := conn.Read(buff)
+		if(err != nil) {
+			fmt.Println("Error reading from connection: ", err.Error())
+			continue
+		}
+
+		conn.Write([]byte("+PONG\r\n"))
+	}
 }
