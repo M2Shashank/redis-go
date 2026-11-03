@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type Store struct {
@@ -17,8 +19,8 @@ var store = Store{
 
 // first element of the array -> command, the rest -> arguments.
 type Command struct {
-	command  string
-	args []string
+	command string
+	args    []string
 }
 
 // parseRESPCommand parses an array of bulk strings into a Command struct
@@ -79,6 +81,8 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("Server listening on port 6379")
+	var t time.Time = time.Now()
+	fmt.Println(t)
 
 	for {
 		conn, err := lis.Accept()
@@ -115,16 +119,19 @@ func handleConn(conn net.Conn) {
 			readBuffer = readBuffer[n:]
 		}
 	}
+
 }
 
 func executeCommand(conn net.Conn, cmd *Command) {
 	switch cmd.command {
-		
-		case "ping": {
+
+	case "ping":
+		{
 			conn.Write([]byte("+PONG\r\n"))
 		}
-			
-		case "echo": {
+
+	case "echo":
+		{
 			if len(cmd.args) != 1 {
 				conn.Write([]byte("-ERR Invalid Command\r\n"))
 			} else {
@@ -134,19 +141,56 @@ func executeCommand(conn net.Conn, cmd *Command) {
 			}
 		}
 
-		case "set": {
-			if len(cmd.args) != 2 {
+	case "set":
+		{
+			switch len(cmd.args) {
+
+			case 2:
+				{
+					store.data[cmd.args[0]] = cmd.args[1]
+					conn.Write([]byte("+OK\r\n"))
+				}
+
+			case 4:
+				{
+					var expiryType string = strings.ToUpper(cmd.args[2])
+					if expiryType != "EX" && expiryType != "PX" {
+						conn.Write([]byte("-ERR Invalid Command\r\n"))
+						return
+					}
+
+					expiryTimeMS, err := strconv.Atoi(cmd.args[3])
+					if err != nil {
+						conn.Write([]byte("-ERR Invalid Command\r\n"))
+						return
+					}
+					if expiryType == "EX" {
+						expiryTimeMS *= 1000
+					}
+
+					var expiryDuration = time.Duration(expiryTimeMS) * time.Millisecond
+
+					var key string = cmd.args[0]
+					store.data[key] = cmd.args[1]
+					go func() {
+						time.Sleep(expiryDuration)
+						delete(store.data, key)
+					}()
+
+					conn.Write([]byte("+OK\r\n"))
+				}
+
+			default:
 				conn.Write([]byte("-ERR Invalid Command\r\n"))
-			} else {
-				store.data[cmd.args[0]] = cmd.args[1]
-				conn.Write([]byte("+OK\r\n"))
+
 			}
 		}
 
-		case "get": {
+	case "get":
+		{
 			if len(cmd.args) != 1 {
 				conn.Write([]byte("-ERR Invalid Command\r\n"))
-			}else {
+			} else {
 				value, exists := store.data[cmd.args[0]]
 				if !exists {
 					conn.Write([]byte("$-1\r\n"))
@@ -157,7 +201,8 @@ func executeCommand(conn net.Conn, cmd *Command) {
 			}
 		}
 
-		default: {
+	default:
+		{
 			conn.Write([]byte("-ERR Unknown Command\r\n"))
 		}
 
