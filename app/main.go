@@ -33,10 +33,10 @@ func parseCmd(req []byte) (int, *ReqCmd) {
 	}
 
 	var cmd ReqCmd = ReqCmd{
-		Args: make([]string, numElem-1),
+		Args: make([]string, 0, numElem-1),
 	}
 
-	for ; i < len(req); i++ {
+	for j := 0; j < numElem; j++ {
 		var val string = ""
 		if req[i] == '$' {
 			i++
@@ -48,10 +48,13 @@ func parseCmd(req []byte) (int, *ReqCmd) {
 			i += 2 // skip \r\n
 
 			val = string(req[i : i+size])
+			if i+size+2 > len(req) {
+				return 0, nil
+			}
 			i = i + size + 2 // skip \r\n
 		}
 
-		if cmd.Cmd == "" {
+		if j == 0 {
 			cmd.Cmd = strings.ToLower(val)
 		} else {
 			cmd.Args = append(cmd.Args, val)
@@ -59,26 +62,6 @@ func parseCmd(req []byte) (int, *ReqCmd) {
 	}
 
 	return i, &cmd
-}
-
-// parseRequest parses a request (can be multiple commands) into an array of ReqCmd structs
-// Assumes all requests are arrays of bulk strings (i.e. starts with '*')
-func parseRequest(req []byte) []ReqCmd {
-	var cmds []ReqCmd
-
-	var i int = 0
-	for {
-		n, cmd := parseCmd(req[i:])
-
-		if cmd == nil || n == 0 {
-			break
-		}
-
-		cmds = append(cmds, *cmd)
-		i += n
-	}
-
-	return cmds
 }
 
 func main() {
@@ -103,6 +86,7 @@ func main() {
 func handleConn(conn net.Conn) {
 	defer conn.Close()
 	var buff []byte = make([]byte, 1024)
+	var pending []byte
 
 	for {
 		n, err := conn.Read(buff)
@@ -111,14 +95,21 @@ func handleConn(conn net.Conn) {
 			break
 		}
 
-		var cmds []ReqCmd = parseRequest(buff[:n])
-		for _, cmd := range cmds {
+		pending = append(pending, buff[:n]...)
+
+		for {
+			n, cmd := parseCmd(pending)
+			if cmd == nil || n == 0 {
+				break
+			}
+
+			// ------ Handle commands ------
 			if cmd.Cmd == "ping" {
 				conn.Write([]byte("+PONG\r\n"))
 			}
 
 			if cmd.Cmd == "echo" {
-				if len(cmd.Args) == 0 {
+				if len(cmd.Args) != 1 {
 					conn.Write([]byte("-ERR Invalid Command\r\n"))
 				} else {
 					var arg string = cmd.Args[0]
@@ -126,6 +117,9 @@ func handleConn(conn net.Conn) {
 					conn.Write([]byte(resp))
 				}
 			}
+			// ---------------------------
+
+			pending = pending[n:]
 		}
 	}
 }
