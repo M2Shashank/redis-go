@@ -8,15 +8,15 @@ import (
 )
 
 // first element of the array -> command, the rest -> arguments.
-type ReqCmd struct {
-	Cmd  string
+type Command struct {
+	command  string
 	Args []string
 }
 
-// parseCmd parses an array of bulk strings into a ReqCmd struct
-// It returns the number of bytes consumed and a pointer to the ReqCmd struct.
+// parseRESPCommand parses an array of bulk strings into a Command struct
+// It returns the number of bytes consumed and a pointer to the Command struct.
 // Assumes a request is an array of bulk strings (i.e. starts with '*')
-func parseCmd(req []byte) (int, *ReqCmd) {
+func parseRESPCommand(req []byte) (int, *Command) {
 	if len(req) == 0 || req[0] != '*' {
 		return 0, nil
 	}
@@ -32,12 +32,12 @@ func parseCmd(req []byte) (int, *ReqCmd) {
 		return 0, nil
 	}
 
-	var cmd ReqCmd = ReqCmd{
+	var cmd Command = Command{
 		Args: make([]string, 0, numElem-1),
 	}
 
 	for j := 0; j < numElem; j++ {
-		var val string = ""
+		var bulkString string = ""
 		if req[i] == '$' {
 			i++
 
@@ -47,7 +47,7 @@ func parseCmd(req []byte) (int, *ReqCmd) {
 			}
 			i += 2 // skip \r\n
 
-			val = string(req[i : i+size])
+			bulkString = string(req[i : i+size])
 			if i+size+2 > len(req) {
 				return 0, nil
 			}
@@ -55,9 +55,9 @@ func parseCmd(req []byte) (int, *ReqCmd) {
 		}
 
 		if j == 0 {
-			cmd.Cmd = strings.ToLower(val)
+			cmd.command = strings.ToLower(bulkString)
 		} else {
-			cmd.Args = append(cmd.Args, val)
+			cmd.Args = append(cmd.Args, bulkString)
 		}
 	}
 
@@ -86,7 +86,7 @@ func main() {
 func handleConn(conn net.Conn) {
 	defer conn.Close()
 	var buff []byte = make([]byte, 1024)
-	var pending []byte
+	var readBuffer []byte
 
 	for {
 		n, err := conn.Read(buff)
@@ -95,31 +95,40 @@ func handleConn(conn net.Conn) {
 			break
 		}
 
-		pending = append(pending, buff[:n]...)
+		readBuffer = append(readBuffer, buff[:n]...)
 
 		for {
-			n, cmd := parseCmd(pending)
+			n, cmd := parseRESPCommand(readBuffer)
 			if cmd == nil || n == 0 {
 				break
 			}
 
-			// ------ Handle commands ------
-			if cmd.Cmd == "ping" {
-				conn.Write([]byte("+PONG\r\n"))
-			}
-
-			if cmd.Cmd == "echo" {
-				if len(cmd.Args) != 1 {
-					conn.Write([]byte("-ERR Invalid Command\r\n"))
-				} else {
-					var arg string = cmd.Args[0]
-					var resp string = fmt.Sprintf("$%d\r\n%s\r\n", len(arg), arg)
-					conn.Write([]byte(resp))
-				}
-			}
-			// ---------------------------
-
-			pending = pending[n:]
+			executeCommand(conn, cmd)
+			readBuffer = readBuffer[n:]
 		}
+	}
+}
+
+func executeCommand(conn net.Conn, cmd *Command) {
+	switch cmd.command {
+		
+		case "ping": {
+			conn.Write([]byte("+PONG\r\n"))
+		}
+			
+		case "echo": {
+			if len(cmd.Args) != 1 {
+				conn.Write([]byte("-ERR Invalid Command\r\n"))
+			} else {
+				var arg string = cmd.Args[0]
+				var resp string = fmt.Sprintf("$%d\r\n%s\r\n", len(arg), arg)
+				conn.Write([]byte(resp))
+			}
+		}
+
+		default: {
+			conn.Write([]byte("-ERR Unknown Command\r\n"))
+		}
+
 	}
 }
