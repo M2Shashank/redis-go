@@ -7,10 +7,18 @@ import (
 	"strings"
 )
 
+type Store struct {
+	data map[string]string
+}
+
+var store = Store{
+	data: make(map[string]string),
+}
+
 // first element of the array -> command, the rest -> arguments.
 type Command struct {
 	command  string
-	Args []string
+	args []string
 }
 
 // parseRESPCommand parses an array of bulk strings into a Command struct
@@ -33,7 +41,7 @@ func parseRESPCommand(req []byte) (int, *Command) {
 	}
 
 	var cmd Command = Command{
-		Args: make([]string, 0, numElem-1),
+		args: make([]string, 0, numElem-1),
 	}
 
 	for j := 0; j < numElem; j++ {
@@ -57,7 +65,7 @@ func parseRESPCommand(req []byte) (int, *Command) {
 		if j == 0 {
 			cmd.command = strings.ToLower(bulkString)
 		} else {
-			cmd.Args = append(cmd.Args, bulkString)
+			cmd.args = append(cmd.args, bulkString)
 		}
 	}
 
@@ -117,12 +125,35 @@ func executeCommand(conn net.Conn, cmd *Command) {
 		}
 			
 		case "echo": {
-			if len(cmd.Args) != 1 {
+			if len(cmd.args) != 1 {
 				conn.Write([]byte("-ERR Invalid Command\r\n"))
 			} else {
-				var arg string = cmd.Args[0]
+				var arg string = cmd.args[0]
 				var resp string = fmt.Sprintf("$%d\r\n%s\r\n", len(arg), arg)
 				conn.Write([]byte(resp))
+			}
+		}
+
+		case "set": {
+			if len(cmd.args) != 2 {
+				conn.Write([]byte("-ERR Invalid Command\r\n"))
+			} else {
+				store.data[cmd.args[0]] = cmd.args[1]
+				conn.Write([]byte("+OK\r\n"))
+			}
+		}
+
+		case "get": {
+			if len(cmd.args) != 1 {
+				conn.Write([]byte("-ERR Invalid Command\r\n"))
+			}else {
+				value, exists := store.data[cmd.args[0]]
+				if !exists {
+					conn.Write([]byte("$-1\r\n"))
+				} else {
+					var resp string = fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
+					conn.Write([]byte(resp))
+				}
 			}
 		}
 
