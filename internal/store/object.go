@@ -50,4 +50,22 @@ func (l *DoublyLL) PushBack(value string) {
 	}
 	l.Length++
 }
+
+func (l *DoublyLL) PopFront() (string, bool) {
+	if l.Head == nil {
+		return "", false
+	}
+
+	value := l.Head.Value
+	l.Head = l.Head.Next
+	if l.Head == nil {
+		l.Tail = nil
+	} else {
+		l.Head.Prev = nil
+	}
+	l.Length--
+	
+	return value, true
+}
+
 // ---------------- end of List Implementation -----------------

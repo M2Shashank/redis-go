@@ -141,4 +141,17 @@ func (s *Store) LLen(key string) int {
 	return obj.Value.(*DoublyLL).Length
 }
 
+func (s *Store) LPop(key string) (string, bool) {
+	s.dataMutex.Lock()
+	defer s.dataMutex.Unlock()
+
+	obj, exists := s.data[key]
+	if !exists || obj.Type != ListType {
+		return "", false
+	}
+
+	list := obj.Value.(*DoublyLL)
+	value, done := list.PopFront()
+	return value, done
+}
 // ---------------- end of List Operations ----------------

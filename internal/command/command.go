@@ -176,6 +176,23 @@ func ExecuteCommand(conn net.Conn, cmd *protocol.Command, dataStore *store.Store
 			conn.Write([]byte(resp))
 		}
 
+	case "LPOP":
+		{
+			if len(cmd.Args) != 1 {
+				conn.Write([]byte("-ERR Invalid Command\r\n"))
+				return
+			}
+
+			value, ok := dataStore.LPop(cmd.Args[0])
+			if !ok {
+				conn.Write([]byte("$-1\r\n"))
+				return
+			}
+
+			var resp string = fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
+			conn.Write([]byte(resp))
+		}
+
 	default:
 		{
 			conn.Write([]byte("-ERR Unknown Command\r\n"))
