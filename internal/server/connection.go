@@ -1,11 +1,15 @@
-package main
+package server
 
 import (
 	"fmt"
 	"net"
+
+	"github.com/codecrafters-io/redis-starter-go/internal/store"
+	"github.com/codecrafters-io/redis-starter-go/internal/protocol"
+	"github.com/codecrafters-io/redis-starter-go/internal/command"
 )
 
-func handleConn(conn net.Conn, store *Store) {
+func HandleConn(conn net.Conn, store *store.Store) {
 	defer conn.Close()
 	var buff []byte = make([]byte, 1024)
 	var readBuffer []byte
@@ -20,14 +24,13 @@ func handleConn(conn net.Conn, store *Store) {
 		readBuffer = append(readBuffer, buff[:n]...)
 
 		for {
-			n, cmd := parseRESPCommand(readBuffer)
+			n, cmd := protocol.ParseRESPCommand(readBuffer)
 			if cmd == nil || n == 0 {
 				break
 			}
 
-			ExecuteCommand(conn, cmd, store)
+			command.ExecuteCommand(conn, cmd, store)
 			readBuffer = readBuffer[n:]
 		}
 	}
-
 }

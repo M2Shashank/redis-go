@@ -1,20 +1,19 @@
-package main
+package protocol
 
 import (
 	"strings"
 )
 
-
 // first element of the array -> command, the rest -> arguments.
 type Command struct {
-	command string
-	args    []string
+	Com  string
+	Args []string
 }
 
 // parseRESPCommand parses an array of bulk strings into a Command struct
 // It returns the number of bytes consumed and a pointer to the Command struct.
 // Assumes a request is an array of bulk strings (i.e. starts with '*')
-func parseRESPCommand(req []byte) (int, *Command) {
+func ParseRESPCommand(req []byte) (int, *Command) {
 	if len(req) == 0 || req[0] != '*' {
 		return 0, nil
 	}
@@ -31,7 +30,7 @@ func parseRESPCommand(req []byte) (int, *Command) {
 	}
 
 	var cmd Command = Command{
-		args: make([]string, 0, numElem-1),
+		Args: make([]string, 0, numElem-1),
 	}
 
 	for j := 0; j < numElem; j++ {
@@ -53,12 +52,14 @@ func parseRESPCommand(req []byte) (int, *Command) {
 		}
 
 		if j == 0 {
-			cmd.command = strings.ToUpper(bulkString)
+			cmd.Com = strings.ToUpper(bulkString)
 		} else {
-			cmd.args = append(cmd.args, bulkString)
+			cmd.Args = append(cmd.Args, bulkString)
 		}
 
-		if i >= len(req) { break }
+		if i >= len(req) {
+			break
+		}
 	}
 
 	return i, &cmd

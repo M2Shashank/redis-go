@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"net"
 	"os"
+
+    "github.com/codecrafters-io/redis-starter-go/internal/server"
+    "github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
 func main() {
-	store := NewStore();
+	dataStore := store.NewStore()
 
 	lis, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
@@ -23,6 +26,6 @@ func main() {
 			os.Exit(1)
 		}
 
-		go handleConn(conn, store)
+		go server.HandleConn(conn, dataStore)
 	}
 }
