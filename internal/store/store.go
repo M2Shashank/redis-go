@@ -2,17 +2,40 @@ package store
 
 import (
 	"sync"
+	//"time"
 )
 
 type Store struct {
 	data      map[string]*RedisObject
 	dataMutex sync.RWMutex
+
+	waiting map[string][]chan string
 }
 
 func NewStore() *Store {
 	return &Store{
-		data: make(map[string]*RedisObject),
+		data:    make(map[string]*RedisObject),
+		waiting: make(map[string][]chan string),
 	}
+}
+
+// to be used when dataMutex is already locked
+func (s *Store) notifyWaiter(key string, value string) bool {
+	queue, exists := s.waiting[key]
+	if !exists || len(queue) == 0 {
+		return false
+	}
+
+	var ch chan string = queue[0]
+	s.waiting[key] = queue[1:]
+	if len(s.waiting[key]) == 0 {
+		delete(s.waiting, key)
+	}
+
+	// non blocking, buffered channel
+	ch <- value
+
+	return true
 }
 
 // ----------------- String Operations ------------------
@@ -56,7 +79,7 @@ func (s *Store) Delete(key string) {
 // ------------- End of String Operations ---------------
 
 // ----------------- List Operations ---------------------
-func (s *Store) RPush(key string, value string) int {
+func (s *Store) RPush(key string, values []string) int {
 	s.dataMutex.Lock()
 	defer s.dataMutex.Unlock()
 
@@ -70,11 +93,26 @@ func (s *Store) RPush(key string, value string) int {
 		return -1
 	}
 
-	listObj.Value.(*DoublyLL).PushBack(value)
-	return listObj.Value.(*DoublyLL).Length
+	list := listObj.Value.(*DoublyLL)
+	var result = list.Length + len(values)
+
+	for _, value := range values {
+		list.PushBack(value)
+	}
+	
+	go func() {
+		for _, value := range values {
+			var notify bool = s.notifyWaiter(key, value)
+			if !notify {
+				break
+			}
+		}
+	}()
+
+	return result
 }
 
-func (s *Store) LPush(key string, value string) int {
+func (s *Store) LPush(key string, values []string) int {
 	s.dataMutex.Lock()
 	defer s.dataMutex.Unlock()
 
@@ -88,8 +126,23 @@ func (s *Store) LPush(key string, value string) int {
 		return -1
 	}
 
-	listObj.Value.(*DoublyLL).PushFront(value)
-	return listObj.Value.(*DoublyLL).Length
+	list := listObj.Value.(*DoublyLL)
+	var result = list.Length + len(values)
+
+	for _, value := range values {
+		list.PushFront(value)
+	}
+	
+	go func() {
+		for _, value := range values {
+			var notify bool = s.notifyWaiter(key, value)
+			if !notify {
+				break
+			}
+		}
+	}()
+
+	return result
 }
 
 func (s *Store) LRange(key string, start int, stop int) []string {
@@ -169,4 +222,43 @@ func (s *Store) LPopN(key string, count int) ([]string, bool) {
 
 	return result, len(result) == count
 }
+
+func (s *Store) BLPop(key string, timeout int) (string, bool) {
+	s.dataMutex.Lock()
+
+	obj, exists := s.data[key]
+	if exists {
+		if obj.Type != ListType {
+			s.dataMutex.Unlock()
+			return "", false
+		}
+
+		list := obj.Value.(*DoublyLL)
+		if list.Length > 0 {
+			value, _ := list.PopFront()
+			s.dataMutex.Unlock()
+			return value, true
+		}
+	}
+
+	// each waiter has its channel
+	ch := make(chan string, 1)
+
+	s.waiting[key] = append(s.waiting[key], ch)
+
+	s.dataMutex.Unlock()
+
+	// block and wait for incoming value
+	value := <-ch
+
+	s.dataMutex.Lock()
+	list := s.data[key].Value.(*DoublyLL)
+	if list.Length > 0 {
+		list.PopFront()
+	}
+	s.dataMutex.Unlock()
+
+	return value, true
+}
+
 // ---------------- end of List Operations ----------------
