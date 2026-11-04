@@ -17,7 +17,7 @@ func main() {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
-	fmt.Println("Server listening on port 6379")
+	fmt.Printf("Server listening on port 6379, %v\n", lis.Addr())
 
 	for {
 		conn, err := lis.Accept()

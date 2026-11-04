@@ -59,6 +59,11 @@ func (s *Store) RPush(key string, value string) int {
 	defer s.dataMutex.Unlock()
 
 	listObj, exists := s.data[key]
+	if !exists {
+		s.data[key] = &RedisObject{ListType, &DoublyLL{}}
+		listObj = s.data[key]
+	}
+
 	if exists && listObj.Type != ListType {
 		return -1
 	}
@@ -72,6 +77,11 @@ func (s *Store) LPush(key string, value string) int {
 	defer s.dataMutex.Unlock()
 
 	listObj, exists := s.data[key]
+	if !exists {
+		s.data[key] = &RedisObject{ListType, &DoublyLL{}}
+		listObj = s.data[key]
+	}
+
 	if exists && listObj.Type != ListType {
 		return -1
 	}

@@ -115,6 +115,27 @@ func ExecuteCommand(conn net.Conn, cmd *protocol.Command, dataStore *store.Store
 			conn.Write([]byte(resp))
 		}
 
+	case "LPUSH":
+		{
+			if len(cmd.Args) < 2 {
+				conn.Write([]byte("-ERR Invalid Command\r\n"))
+				return
+			}
+
+			var len int = 0
+			for _, value := range cmd.Args[1:] {
+				len = dataStore.LPush(cmd.Args[0], value)
+
+				if len == -1 {
+					conn.Write([]byte("-ERR Wrong Type\r\n"))
+					return
+				}
+			}
+
+			var resp = fmt.Sprintf(":%d\r\n", len)
+			conn.Write([]byte(resp))
+		}
+
 	case "LRANGE":
 		{
 			if len(cmd.Args) != 3 {
