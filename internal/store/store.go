@@ -5,7 +5,7 @@ import (
 )
 
 type Store struct {
-	data map[string]RedisObject
+	data      map[string]RedisObject
 	dataMutex sync.RWMutex
 }
 
@@ -20,9 +20,10 @@ func (s *Store) Get(key string) (string, bool) {
 	defer s.dataMutex.RUnlock()
 
 	obj, exists := s.data[key]
-	if obj.Type != StringType {
+	if !exists || obj.Type != StringType {
 		return "", false
 	}
+
 	return obj.Value.(string), exists
 }
 
