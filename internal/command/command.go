@@ -102,11 +102,12 @@ func ExecuteCommand(conn net.Conn, cmd *protocol.Command, dataStore *store.Store
 			}
 
 			key := cmd.Args[0]
+			var len int = 0
 			for _, value := range cmd.Args[1:] {
-				dataStore.Set(key, store.ListType, value)
+				len = dataStore.Set(key, store.ListType, value)
 			}
 
-			var resp = fmt.Sprintf(":%d\r\n", len(cmd.Args)-1)
+			var resp = fmt.Sprintf(":%d\r\n", len)
 			conn.Write([]byte(resp))
 		}
 

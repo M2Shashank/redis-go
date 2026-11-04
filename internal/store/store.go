@@ -5,13 +5,13 @@ import (
 )
 
 type Store struct {
-	data      map[string]RedisObject
+	data      map[string]*RedisObject
 	dataMutex sync.RWMutex
 }
 
 func NewStore() *Store {
 	return &Store{
-		data: make(map[string]RedisObject),
+		data: make(map[string]*RedisObject),
 	}
 }
 
@@ -27,26 +27,33 @@ func (s *Store) Get(key string) (string, bool) {
 	return obj.Value.(string), exists
 }
 
-func (s *Store) Set(key string, typ ObjectType, value string) {
+func (s *Store) Set(key string, typ ObjectType, value string) int {
 	s.dataMutex.Lock()
 	defer s.dataMutex.Unlock()
 
-	if typ == StringType {
-		s.data[key] = RedisObject{
-			Type:  typ,
-			Value: value,
-		}
-	} else if typ == ListType {
-		listObj, exists := s.data[key]
-		if !exists {
-			s.data[key] = RedisObject{
-				Type:  typ,
-				Value: []string{value},
-			}
-		} else {
-			listObj.Value = append(listObj.Value.([]string), value)
-		}
+	obj, exists := s.data[key]
+	if exists && obj.Type != typ {
+		return -1
 	}
+
+	if !exists {
+		if typ == ListType {
+			s.data[key] = &RedisObject{ typ, []string{value} }
+		} else if typ == StringType {
+			s.data[key] = &RedisObject{ typ, value }
+		}
+		return 1
+	}
+
+	var result int = 1
+	if typ == StringType {
+		s.data[key].Value = value
+	} else if typ == ListType {
+		listObj := s.data[key]
+		listObj.Value = append(listObj.Value.([]string), value)
+		result = len(listObj.Value.([]string))
+	}
+	return result
 }
 
 func (s *Store) Delete(key string) {
