@@ -3,15 +3,15 @@ package command
 import (
 	"fmt"
 	"net"
-	"time"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/codecrafters-io/redis-starter-go/internal/store"
 	"github.com/codecrafters-io/redis-starter-go/internal/protocol"
+	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
-func ExecuteCommand(conn net.Conn, cmd *protocol.Command, store *store.Store) {
+func ExecuteCommand(conn net.Conn, cmd *protocol.Command, dataStore *store.Store) {
 	switch cmd.Com {
 
 	case "PING":
@@ -36,7 +36,7 @@ func ExecuteCommand(conn net.Conn, cmd *protocol.Command, store *store.Store) {
 
 			case 2:
 				{
-					store.Set(cmd.Args[0], cmd.Args[1])
+					dataStore.Set(cmd.Args[0], store.StringType, cmd.Args[1])
 					conn.Write([]byte("+OK\r\n"))
 				}
 
@@ -61,11 +61,11 @@ func ExecuteCommand(conn net.Conn, cmd *protocol.Command, store *store.Store) {
 
 					var key string = cmd.Args[0]
 
-					store.Set(key, cmd.Args[1])
+					dataStore.Set(key, store.StringType, cmd.Args[1])
 
 					go func() {
 						time.Sleep(expiryDuration)
-						store.Delete(key)
+						dataStore.Delete(key)
 					}()
 
 					conn.Write([]byte("+OK\r\n"))
@@ -84,7 +84,7 @@ func ExecuteCommand(conn net.Conn, cmd *protocol.Command, store *store.Store) {
 				return
 			}
 
-			value, ok := store.Get(cmd.Args[0])
+			value, ok := dataStore.Get(cmd.Args[0])
 
 			if !ok {
 				conn.Write([]byte("$-1\r\n"))
@@ -92,6 +92,22 @@ func ExecuteCommand(conn net.Conn, cmd *protocol.Command, store *store.Store) {
 				var resp string = fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
 				conn.Write([]byte(resp))
 			}
+		}
+
+	case "RPUSH":
+		{
+			if len(cmd.Args) < 2 {
+				conn.Write([]byte("-ERR Invalid Command\r\n"))
+				return
+			}
+
+			key := cmd.Args[0]
+			for _, value := range cmd.Args[1:] {
+				dataStore.Set(key, store.ListType, value)
+			}
+
+			var resp = fmt.Sprintf(":%d\r\n", len(cmd.Args)-1)
+			conn.Write([]byte(resp))
 		}
 
 	default:
