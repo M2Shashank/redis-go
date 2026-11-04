@@ -164,6 +164,18 @@ func ExecuteCommand(conn net.Conn, cmd *protocol.Command, dataStore *store.Store
 			conn.Write([]byte(resp))
 		}
 
+	case "LLEN":
+		{
+			if len(cmd.Args) != 1 {
+				conn.Write([]byte("-ERR Invalid Command\r\n"))
+				return
+			}
+
+			var len int = dataStore.LLen(cmd.Args[0])
+			var resp = fmt.Sprintf(":%d\r\n", len)
+			conn.Write([]byte(resp))
+		}
+
 	default:
 		{
 			conn.Write([]byte("-ERR Unknown Command\r\n"))

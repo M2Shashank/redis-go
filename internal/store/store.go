@@ -15,7 +15,7 @@ func NewStore() *Store {
 	}
 }
 
-// ------------- String Operations ---------------
+// ----------------- String Operations ------------------
 func (s *Store) Get(key string) (string, bool) {
 	s.dataMutex.RLock()
 	defer s.dataMutex.RUnlock()
@@ -53,7 +53,9 @@ func (s *Store) Delete(key string) {
 	delete(s.data, key)
 }
 
-// ------------- List Operations ---------------
+// ------------- End of String Operations ---------------
+
+// ----------------- List Operations ---------------------
 func (s *Store) RPush(key string, value string) int {
 	s.dataMutex.Lock()
 	defer s.dataMutex.Unlock()
@@ -126,3 +128,17 @@ func (s *Store) LRange(key string, start int, stop int) []string {
 	}
 	return result
 }
+
+func (s *Store) LLen(key string) int {
+	s.dataMutex.RLock()
+	defer s.dataMutex.RUnlock()
+
+	obj, exists := s.data[key]
+	if !exists || obj.Type != ListType {
+		return 0
+	}
+
+	return obj.Value.(*DoublyLL).Length
+}
+
+// ---------------- end of List Operations ----------------
