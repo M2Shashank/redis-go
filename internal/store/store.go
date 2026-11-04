@@ -15,6 +15,8 @@ func NewStore() *Store {
 	}
 }
 
+
+// ------------- String Operations ---------------
 func (s *Store) Get(key string) (string, bool) {
 	s.dataMutex.RLock()
 	defer s.dataMutex.RUnlock()
@@ -27,33 +29,22 @@ func (s *Store) Get(key string) (string, bool) {
 	return obj.Value.(string), exists
 }
 
-func (s *Store) Set(key string, typ ObjectType, value string) int {
+func (s *Store) Set(key string, value string) int {
 	s.dataMutex.Lock()
 	defer s.dataMutex.Unlock()
 
 	obj, exists := s.data[key]
-	if exists && obj.Type != typ {
-		return -1
-	}
-
 	if !exists {
-		if typ == ListType {
-			s.data[key] = &RedisObject{ typ, []string{value} }
-		} else if typ == StringType {
-			s.data[key] = &RedisObject{ typ, value }
-		}
+		s.data[key] = &RedisObject{ StringType, value }
 		return 1
 	}
 
-	var result int = 1
-	if typ == StringType {
-		s.data[key].Value = value
-	} else if typ == ListType {
-		listObj := s.data[key]
-		listObj.Value = append(listObj.Value.([]string), value)
-		result = len(listObj.Value.([]string))
+	if exists && obj.Type != StringType {
+		return -1
 	}
-	return result
+
+	s.data[key].Value = value
+	return 1
 }
 
 func (s *Store) Delete(key string) {
@@ -61,4 +52,44 @@ func (s *Store) Delete(key string) {
 	defer s.dataMutex.Unlock()
 
 	delete(s.data, key)
+}
+
+// ------------- List Operations ---------------
+func (s *Store) RPush(key string, value string) int {
+	s.dataMutex.Lock()
+	defer s.dataMutex.Unlock()
+
+	obj, exists := s.data[key]
+	if !exists {
+		s.data[key] = &RedisObject{ ListType, []string{value} }
+		return 1
+	}
+
+	if exists && obj.Type != ListType {
+		return -1
+	}
+
+	listObj := s.data[key]
+	listObj.Value = append(listObj.Value.([]string), value)
+	return len(listObj.Value.([]string))
+}
+
+func (s *Store) LRange(key string, start int, stop int) []string {
+	s.dataMutex.RLock()
+	defer s.dataMutex.RUnlock()
+
+	obj, exists := s.data[key]
+	if !exists || obj.Type != ListType {
+		return nil
+	}
+
+	list := obj.Value.([]string)
+
+	start = max(start, 0)
+	stop = min(stop, len(list)-1)
+	if start > stop {
+		return []string{}
+	}
+	
+	return list[start : stop+1]
 }
