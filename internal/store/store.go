@@ -15,7 +15,6 @@ func NewStore() *Store {
 	}
 }
 
-
 // ------------- String Operations ---------------
 func (s *Store) Get(key string) (string, bool) {
 	s.dataMutex.RLock()
@@ -35,7 +34,7 @@ func (s *Store) Set(key string, value string) int {
 
 	obj, exists := s.data[key]
 	if !exists {
-		s.data[key] = &RedisObject{ StringType, value }
+		s.data[key] = &RedisObject{StringType, value}
 		return 1
 	}
 
@@ -61,7 +60,7 @@ func (s *Store) RPush(key string, value string) int {
 
 	obj, exists := s.data[key]
 	if !exists {
-		s.data[key] = &RedisObject{ ListType, []string{value} }
+		s.data[key] = &RedisObject{ListType, []string{value}}
 		return 1
 	}
 
@@ -85,11 +84,18 @@ func (s *Store) LRange(key string, start int, stop int) []string {
 
 	list := obj.Value.([]string)
 
+	if start < 0 {
+		start = len(list) + start
+	}
+	if stop < 0 {
+		stop = len(list) + stop
+	}
+
 	start = max(start, 0)
 	stop = min(stop, len(list)-1)
 	if start > stop {
-		return []string{}
+		return nil
 	}
-	
+
 	return list[start : stop+1]
 }

@@ -104,6 +104,11 @@ func ExecuteCommand(conn net.Conn, cmd *protocol.Command, dataStore *store.Store
 			var len int = 0
 			for _, value := range cmd.Args[1:] {
 				len = dataStore.RPush(cmd.Args[0], value)
+
+				if len == -1 {
+					conn.Write([]byte("-ERR Wrong Type\r\n"))
+					return
+				}
 			}
 
 			var resp = fmt.Sprintf(":%d\r\n", len)
@@ -126,7 +131,7 @@ func ExecuteCommand(conn net.Conn, cmd *protocol.Command, dataStore *store.Store
 
 			var list []string = dataStore.LRange(cmd.Args[0], left, right)
 
-			if list == nil || len(list) == 0 {
+			if list == nil {
 				conn.Write([]byte("*0\r\n"))
 				return
 			}
