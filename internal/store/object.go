@@ -64,8 +64,7 @@ func (l *DoublyLL) PopFront() (string, bool) {
 		l.Head.Prev = nil
 	}
 	l.Length--
-	
+
 	return value, true
 }
-
 // ---------------- end of List Implementation -----------------

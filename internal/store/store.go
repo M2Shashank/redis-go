@@ -154,4 +154,19 @@ func (s *Store) LPop(key string) (string, bool) {
 	value, done := list.PopFront()
 	return value, done
 }
+
+func (s *Store) LPopN(key string, count int) ([]string, bool) {
+	count = min(count, s.LLen(key))
+	var result []string = make([]string, 0, count)
+
+	for i := 0; i < count; i++ {
+		value, ok := s.LPop(key)
+		if !ok {
+			break
+		}
+		result = append(result, value)
+	}
+
+	return result, len(result) == count
+}
 // ---------------- end of List Operations ----------------

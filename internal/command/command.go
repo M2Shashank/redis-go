@@ -178,19 +178,43 @@ func ExecuteCommand(conn net.Conn, cmd *protocol.Command, dataStore *store.Store
 
 	case "LPOP":
 		{
-			if len(cmd.Args) != 1 {
-				conn.Write([]byte("-ERR Invalid Command\r\n"))
-				return
-			}
+			switch len(cmd.Args) {
+			case 1:
+				{
+					value, ok := dataStore.LPop(cmd.Args[0])
+					if !ok {
+						conn.Write([]byte("$-1\r\n"))
+						return
+					}
 
-			value, ok := dataStore.LPop(cmd.Args[0])
-			if !ok {
-				conn.Write([]byte("$-1\r\n"))
-				return
-			}
+					var resp string = fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
+					conn.Write([]byte(resp))
+				}
+			case 2:
+				{
+					var popCount, err = strconv.Atoi(cmd.Args[1])
+					if err != nil || popCount < 0 {
+						conn.Write([]byte("-ERR Invalid Command\r\n"))
+						return
+					}
 
-			var resp string = fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
-			conn.Write([]byte(resp))
+					values, ok := dataStore.LPopN(cmd.Args[0], popCount)
+					if !ok {
+						conn.Write([]byte("*0\r\n"))
+						return
+					}
+
+					var resp string = fmt.Sprintf("*%d\r\n", len(values))
+					for _, value := range values {
+						resp += fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
+					}
+					conn.Write([]byte(resp))
+				}
+			default:
+				{
+					conn.Write([]byte("-ERR Invalid Command\r\n"))
+				}
+			}
 		}
 
 	default:
