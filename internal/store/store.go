@@ -58,19 +58,26 @@ func (s *Store) RPush(key string, value string) int {
 	s.dataMutex.Lock()
 	defer s.dataMutex.Unlock()
 
-	obj, exists := s.data[key]
-	if !exists {
-		s.data[key] = &RedisObject{ListType, []string{value}}
-		return 1
-	}
-
-	if exists && obj.Type != ListType {
+	listObj, exists := s.data[key]
+	if exists && listObj.Type != ListType {
 		return -1
 	}
 
-	listObj := s.data[key]
-	listObj.Value = append(listObj.Value.([]string), value)
-	return len(listObj.Value.([]string))
+	listObj.Value.(*DoublyLL).PushBack(value)
+	return listObj.Value.(*DoublyLL).Length
+}
+
+func (s *Store) LPush(key string, value string) int {
+	s.dataMutex.Lock()
+	defer s.dataMutex.Unlock()
+
+	listObj, exists := s.data[key]
+	if exists && listObj.Type != ListType {
+		return -1
+	}
+
+	listObj.Value.(*DoublyLL).PushFront(value)
+	return listObj.Value.(*DoublyLL).Length
 }
 
 func (s *Store) LRange(key string, start int, stop int) []string {
@@ -82,20 +89,30 @@ func (s *Store) LRange(key string, start int, stop int) []string {
 		return nil
 	}
 
-	list := obj.Value.([]string)
+	list := obj.Value.(*DoublyLL)
 
 	if start < 0 {
-		start = len(list) + start
+		start = list.Length + start
 	}
 	if stop < 0 {
-		stop = len(list) + stop
+		stop = list.Length + stop
 	}
-
 	start = max(start, 0)
-	stop = min(stop, len(list)-1)
+	stop = min(stop, list.Length-1)
+
 	if start > stop {
 		return nil
 	}
 
-	return list[start : stop+1]
+	var result []string = make([]string, 0, stop-start+1)
+	current := list.Head
+	for i := 0; i < start; i++ {
+		current = current.Next
+	}
+
+	for i := start; i <= stop; i++ {
+		result = append(result, current.Value)
+		current = current.Next
+	}
+	return result
 }

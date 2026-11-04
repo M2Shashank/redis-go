@@ -9,3 +9,45 @@ type RedisObject struct {
 	Type ObjectType
 	Value any
 }
+
+
+//----- doubly linked list node for list implementation -----
+type DoublyLL struct {
+	Head, Tail *ListNode
+	Length int
+}
+
+type ListNode struct {
+	Value string
+	Next  *ListNode
+	Prev  *ListNode
+}
+
+func (l *DoublyLL) PushFront(value string) {
+	var node *ListNode = &ListNode{value, nil, nil}
+
+	if l.Head == nil {
+		l.Head = node
+		l.Tail = node
+	} else {
+		node.Next = l.Head
+		l.Head.Prev = node
+		l.Head = node
+	}
+	l.Length++
+}
+
+func (l *DoublyLL) PushBack(value string) {
+	var node *ListNode = &ListNode{value, nil, nil}
+
+	if l.Tail == nil {
+		l.Head = node
+		l.Tail = node
+	} else {
+		node.Prev = l.Tail
+		l.Tail.Next = node
+		l.Tail = node
+	}
+	l.Length++
+}
+// ---------------- end of List Implementation -----------------
