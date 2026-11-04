@@ -20,22 +20,25 @@ func NewStore() *Store {
 }
 
 // to be used when dataMutex is already locked
-func (s *Store) notifyWaiter(key string, value string) bool {
+func (s *Store) serveWaiters(key string, list *DoublyLL) {
 	queue, exists := s.waiting[key]
 	if !exists || len(queue) == 0 {
-		return false
+		return
 	}
 
-	var ch chan string = queue[0]
-	s.waiting[key] = queue[1:]
-	if len(s.waiting[key]) == 0 {
+	for len(queue) > 0 && list.Length > 0 {
+		var ch chan string = queue[0]
+		queue = queue[1:]
+
+		value, _ := list.PopFront()
+		ch <- value
+	}
+
+	if len(queue) == 0 {
 		delete(s.waiting, key)
+	} else {
+		s.waiting[key] = queue
 	}
-
-	// non blocking, buffered channel
-	ch <- value
-
-	return true
 }
 
 // ----------------- String Operations ------------------
@@ -100,15 +103,7 @@ func (s *Store) RPush(key string, values []string) int {
 		list.PushBack(value)
 	}
 	
-	go func() {
-		for _, value := range values {
-			var notify bool = s.notifyWaiter(key, value)
-			if !notify {
-				break
-			}
-		}
-	}()
-
+	s.serveWaiters(key, list)
 	return result
 }
 
@@ -133,15 +128,7 @@ func (s *Store) LPush(key string, values []string) int {
 		list.PushFront(value)
 	}
 	
-	go func() {
-		for _, value := range values {
-			var notify bool = s.notifyWaiter(key, value)
-			if !notify {
-				break
-			}
-		}
-	}()
-
+	s.serveWaiters(key, list)
 	return result
 }
 
@@ -250,13 +237,6 @@ func (s *Store) BLPop(key string, timeout int) (string, bool) {
 
 	// block and wait for incoming value
 	value := <-ch
-
-	s.dataMutex.Lock()
-	list := s.data[key].Value.(*DoublyLL)
-	if list.Length > 0 {
-		list.PopFront()
-	}
-	s.dataMutex.Unlock()
 
 	return value, true
 }

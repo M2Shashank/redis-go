@@ -225,7 +225,7 @@ func ExecuteCommand(conn net.Conn, cmd *protocol.Command, dataStore *store.Store
 
 			value, ok := dataStore.BLPop(key, timeout)
 			if !ok {
-				conn.Write([]byte("$-1\r\n"))
+				conn.Write([]byte("*-1\r\n"))
 				return
 			}
 
