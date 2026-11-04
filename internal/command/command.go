@@ -216,7 +216,7 @@ func ExecuteCommand(conn net.Conn, cmd *protocol.Command, dataStore *store.Store
 				return
 			}
 
-			var timeout, err = strconv.Atoi(cmd.Args[1])
+			timeout, err := strconv.ParseFloat(cmd.Args[1], 64)
 			if err != nil || timeout < 0 {
 				conn.Write([]byte("-ERR Invalid Command\r\n"))
 				return

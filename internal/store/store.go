@@ -2,7 +2,7 @@ package store
 
 import (
 	"sync"
-	//"time"
+	"time"
 )
 
 type Store struct {
@@ -102,7 +102,7 @@ func (s *Store) RPush(key string, values []string) int {
 	for _, value := range values {
 		list.PushBack(value)
 	}
-	
+
 	s.serveWaiters(key, list)
 	return result
 }
@@ -127,7 +127,7 @@ func (s *Store) LPush(key string, values []string) int {
 	for _, value := range values {
 		list.PushFront(value)
 	}
-	
+
 	s.serveWaiters(key, list)
 	return result
 }
@@ -210,8 +210,9 @@ func (s *Store) LPopN(key string, count int) ([]string, bool) {
 	return result, len(result) == count
 }
 
-func (s *Store) BLPop(key string, timeout int) (string, bool) {
+func (s *Store) BLPop(key string, timeout float64) (string, bool) {
 	s.dataMutex.Lock()
+	timeoutDuration := time.Duration(timeout * float64(time.Second))
 
 	obj, exists := s.data[key]
 	if exists {
@@ -235,10 +236,40 @@ func (s *Store) BLPop(key string, timeout int) (string, bool) {
 
 	s.dataMutex.Unlock()
 
-	// block and wait for incoming value
-	value := <-ch
+	if timeoutDuration <= 0 {
+		// No timeout, block indefinitely
+		value := <-ch
+		return value, true
+	}
 
-	return value, true
+	select {
+	// block and wait for incoming value
+	case value := <-ch:
+		return value, true
+
+	// timeout after specified duration. Remove from waiting list
+	case <-time.After(timeoutDuration):
+		s.dataMutex.Lock()
+
+		waiters := s.waiting[key]
+
+		for i, waiter := range waiters {
+			if waiter == ch {
+				waiters = append(waiters[:i], waiters[i+1:]...)
+				break
+			}
+		}
+
+		if len(waiters) == 0 {
+			delete(s.waiting, key)
+		} else {
+			s.waiting[key] = waiters
+		}
+
+		s.dataMutex.Unlock()
+
+		return "", false
+	}
 }
 
 // ---------------- end of List Operations ----------------
