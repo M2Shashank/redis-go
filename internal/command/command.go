@@ -1,7 +1,6 @@
 package command
 
 import (
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -11,23 +10,27 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
-func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) {
+var SimpleOK []byte = resp.SimpleString.EncodeRESP("OK")
+var ERRInvalidCommand []byte = resp.ErrorString.EncodeRESP("ERR Invalid Command")
+var ERRWrongType []byte = resp.ErrorString.EncodeRESP("ERR Wrong Type")
+
+func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []byte {
 	switch cmd.Com {
 
 	case "PING":
 		{
-			conn.Write([]byte("+PONG\r\n"))
+			return resp.SimpleString.EncodeRESP("PONG")
 		}
 
 	case "ECHO":
 		{
+			var result []byte
 			if len(cmd.Args) != 1 {
-				conn.Write([]byte("-ERR Invalid Command\r\n"))
+				result = ERRInvalidCommand
 			} else {
-				var arg string = cmd.Args[0]
-				var resp string = fmt.Sprintf("$%d\r\n%s\r\n", len(arg), arg)
-				conn.Write([]byte(resp))
+				result = resp.BulkString.EncodeRESP(cmd.Args[0])
 			}
+			return result
 		}
 
 	case "SET":
@@ -35,23 +38,19 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) {
 			switch len(cmd.Args) {
 
 			case 2:
-				{
-					dataStore.Set(cmd.Args[0], cmd.Args[1])
-					conn.Write([]byte("+OK\r\n"))
-				}
+				dataStore.Set(cmd.Args[0], cmd.Args[1])
+				return SimpleOK
 
 			case 4:
 				{
 					var expiryType string = strings.ToUpper(cmd.Args[2])
 					if expiryType != "EX" && expiryType != "PX" {
-						conn.Write([]byte("-ERR Invalid Command\r\n"))
-						return
+						return ERRInvalidCommand
 					}
 
 					expiryTimeMS, err := strconv.Atoi(cmd.Args[3])
 					if err != nil {
-						conn.Write([]byte("-ERR Invalid Command\r\n"))
-						return
+						return ERRInvalidCommand
 					}
 					if expiryType == "EX" {
 						expiryTimeMS *= 1000
@@ -68,11 +67,11 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) {
 						dataStore.Delete(key)
 					}()
 
-					conn.Write([]byte("+OK\r\n"))
+					return SimpleOK
 				}
 
 			default:
-				conn.Write([]byte("-ERR Invalid Command\r\n"))
+				return ERRInvalidCommand
 
 			}
 		}
@@ -80,92 +79,77 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) {
 	case "GET":
 		{
 			if len(cmd.Args) != 1 {
-				conn.Write([]byte("-ERR Invalid Command\r\n"))
-				return
+				return ERRInvalidCommand
 			}
 
 			value, ok := dataStore.Get(cmd.Args[0])
 
+			var response []byte
 			if !ok {
-				conn.Write([]byte("$-1\r\n"))
+				response = resp.BulkString.EncodeRESP("")
 			} else {
-				var resp string = fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
-				conn.Write([]byte(resp))
+				response = resp.BulkString.EncodeRESP(value)
 			}
+			return response
 		}
 
 	case "RPUSH":
 		{
 			if len(cmd.Args) < 2 {
-				conn.Write([]byte("-ERR Invalid Command\r\n"))
-				return
+				return ERRInvalidCommand
 			}
 
 			len := dataStore.RPush(cmd.Args[0], cmd.Args[1:])
 			if len == -1 {
-				conn.Write([]byte("-ERR Wrong Type\r\n"))
-				return
+				return ERRWrongType
 			}
 
-			var resp = fmt.Sprintf(":%d\r\n", len)
-			conn.Write([]byte(resp))
+			var response []byte = resp.Integer.EncodeRESP(len)
+			return response
 		}
 
 	case "LPUSH":
 		{
 			if len(cmd.Args) < 2 {
-				conn.Write([]byte("-ERR Invalid Command\r\n"))
-				return
+				return ERRInvalidCommand
 			}
 
 			len := dataStore.LPush(cmd.Args[0], cmd.Args[1:])
 			if len == -1 {
-				conn.Write([]byte("-ERR Wrong Type\r\n"))
-				return
+				return ERRWrongType
 			}
 
-			var resp = fmt.Sprintf(":%d\r\n", len)
-			conn.Write([]byte(resp))
+			var response []byte = resp.Integer.EncodeRESP(len)
+			return response
 		}
 
 	case "LRANGE":
 		{
 			if len(cmd.Args) != 3 {
-				conn.Write([]byte("-ERR Invalid Command\r\n"))
-				return
+				return ERRInvalidCommand
 			}
 
 			left, err1 := strconv.Atoi(cmd.Args[1])
 			right, err2 := strconv.Atoi(cmd.Args[2])
 			if err1 != nil || err2 != nil {
-				conn.Write([]byte("-ERR Invalid Command\r\n"))
-				return
+				return ERRInvalidCommand
 			}
 
 			var list []string = dataStore.LRange(cmd.Args[0], left, right)
 
-			if list == nil {
-				conn.Write([]byte("*0\r\n"))
-				return
-			}
-
-			var resp string = fmt.Sprintf("*%d\r\n", len(list))
-			for _, value := range list {
-				resp += fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
-			}
-			conn.Write([]byte(resp))
+			response := resp.Array.EncodeRESP(list)
+			return response
 		}
 
 	case "LLEN":
 		{
 			if len(cmd.Args) != 1 {
-				conn.Write([]byte("-ERR Invalid Command\r\n"))
-				return
+				return ERRInvalidCommand
 			}
 
 			var len int = dataStore.LLen(cmd.Args[0])
-			var resp = fmt.Sprintf(":%d\r\n", len)
-			conn.Write([]byte(resp))
+			response := resp.Integer.EncodeRESP(len)
+			return response
 		}
 
 	case "LPOP":
@@ -174,37 +158,34 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) {
 			case 1:
 				{
 					value, ok := dataStore.LPop(cmd.Args[0])
-					if !ok {
-						conn.Write([]byte("$-1\r\n"))
-						return
-					}
 
-					var resp string = fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
-					conn.Write([]byte(resp))
+					var response []byte
+					if !ok {
+						response = resp.BulkString.EncodeRESP("")
+					} else {
+						response = resp.BulkString.EncodeRESP(value)
+					}
+					return response
 				}
 			case 2:
 				{
 					var popCount, err = strconv.Atoi(cmd.Args[1])
 					if err != nil || popCount < 0 {
-						conn.Write([]byte("-ERR Invalid Command\r\n"))
-						return
+						return ERRInvalidCommand
 					}
+					var response []byte
 
 					values, ok := dataStore.LPopN(cmd.Args[0], popCount)
 					if !ok {
-						conn.Write([]byte("*0\r\n"))
-						return
+						response = resp.Array.EncodeRESP(nil)
+					} else {
+						response = resp.Array.EncodeRESP(values)
 					}
-
-					var resp string = fmt.Sprintf("*%d\r\n", len(values))
-					for _, value := range values {
-						resp += fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
-					}
-					conn.Write([]byte(resp))
+					return response
 				}
 			default:
 				{
-					conn.Write([]byte("-ERR Invalid Command\r\n"))
+					return ERRInvalidCommand
 				}
 			}
 		}
@@ -212,33 +193,41 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) {
 	case "BLPOP":
 		{
 			if len(cmd.Args) != 2 {
-				conn.Write([]byte("-ERR Invalid Command\r\n"))
-				return
+				return ERRInvalidCommand
 			}
 
 			timeout, err := strconv.ParseFloat(cmd.Args[1], 64)
 			if err != nil || timeout < 0 {
-				conn.Write([]byte("-ERR Invalid Command\r\n"))
-				return
+				return ERRInvalidCommand
 			}
 			var key string = cmd.Args[0]
 
 			value, ok := dataStore.BLPop(key, timeout)
 			if !ok {
-				conn.Write([]byte("*-1\r\n"))
-				return
+				response := resp.Array.EncodeRESP(nil)
+				return response
 			}
 
-			var resp string = fmt.Sprintf(
-				"*2\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n",
-				len(key), key, len(value), value,
-			)
-			conn.Write([]byte(resp))
+			response := resp.Array.EncodeRESP([]string{key, value})
+			return response
+		}
+
+	case "TYPE":
+		{
+			if len(cmd.Args) != 1 {
+				return ERRInvalidCommand
+			}
+
+			var key string = cmd.Args[0]
+			var typeStr string = dataStore.TypeOf(key)
+
+			response := resp.SimpleString.EncodeRESP(typeStr)
+			return response
 		}
 
 	default:
 		{
-			conn.Write([]byte("-ERR Unknown Command\r\n"))
+			return ERRInvalidCommand
 		}
 
 	}

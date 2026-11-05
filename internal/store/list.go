@@ -74,7 +74,7 @@ func (s *Store) LRange(key string, start int, stop int) []string {
 	stop = min(stop, list.Length-1)
 
 	if start > stop {
-		return nil
+		return []string{}
 	}
 
 	var result []string = make([]string, 0, stop-start+1)
@@ -123,7 +123,7 @@ func (s *Store) LPopN(key string, count int) ([]string, bool) {
 	for i := 0; i < count; i++ {
 		value, ok := s.LPop(key)
 		if !ok {
-			break
+			return nil, false
 		}
 		result = append(result, value)
 	}
