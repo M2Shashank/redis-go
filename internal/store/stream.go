@@ -47,7 +47,7 @@ func (s *Stream) createStreamEntry(ID string, fields map[string]string) (*Stream
 	}
 
 	if ID == "*" {
-		millisecondsTime = time.Now().Unix()
+		millisecondsTime = time.Now().UnixMilli()
 	} else {
 		millisecondsTime, err1 = strconv.ParseInt(nums[0], 10, 64)
 		if err1 != nil {
@@ -116,7 +116,7 @@ func (s *Store) createStreamObject() *RedisObject {
 func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) (string, error) {
 	s.dataMutex.Lock()
 	defer s.dataMutex.Unlock()
-	
+
 	redisObj, exists := s.data[key]
 	if exists && redisObj.Type != StreamType {
 		return "", errors.New("ERR WrongType Operation. NOT A STREAM")
