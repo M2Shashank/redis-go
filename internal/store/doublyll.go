@@ -7,7 +7,6 @@ type ListNode[T any] struct {
 	Prev  *ListNode[T]
 }
 
-
 type DoublyLL[T any] struct {
 	Head, Tail *ListNode[T]
 	Length     int
@@ -58,6 +57,22 @@ func (l *DoublyLL[T]) PopFront() (T, bool) {
 	l.Length--
 
 	return value, true
+}
+
+func (l *DoublyLL[T]) Front() (T, bool) {
+	if l.Head == nil {
+		var zero T
+		return zero, false
+	}
+	return l.Head.Value, true
+}
+
+func (l *DoublyLL[T]) Back() (T, bool) {
+	if l.Tail == nil {
+		var zero T
+		return zero, false
+	}
+	return l.Tail.Value, true
 }
 
 // ---------------- end of List Implementation -----------------
