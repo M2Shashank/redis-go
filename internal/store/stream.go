@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type StreamEntry struct {
@@ -38,19 +39,23 @@ func (s *Stream) validate(entry *StreamEntry) error {
 
 func (s *Stream) createStreamEntry(ID string, fields map[string]string) (*StreamEntry, error) {
 	var nums []string = strings.Split(ID, "-")
-	if len(nums) != 2 {
-		return nil, errors.New("ERR Invalid Arguments for XADD command")
-	}
-
 	var millisecondsTime, sequenceNumber int64
 	var err1, err2 error
 
-	millisecondsTime, err1 = strconv.ParseInt(nums[0], 10, 64)
-	if err1 != nil {
+	if len(nums) != 2 && ID != "*" {
 		return nil, errors.New("ERR Invalid Arguments for XADD command")
 	}
 
-	if nums[1] == "*" {
+	if ID == "*" {
+		millisecondsTime = time.Now().Unix()
+	} else {
+		millisecondsTime, err1 = strconv.ParseInt(nums[0], 10, 64)
+		if err1 != nil {
+			return nil, errors.New("ERR Invalid Arguments for XADD command")
+		}
+	}
+
+	if ID == "*" || nums[1] == "*" {
 		var lastEntry, exists = s.Entries.Back()
 		if !exists {
 			if millisecondsTime == 0 {
@@ -81,14 +86,16 @@ func (s *Stream) createStreamEntry(ID string, fields map[string]string) (*Stream
 		return nil, errors.New("ERR The ID specified in XADD must be greater than 0-0")
 	}
 
+	newID := strconv.FormatInt(millisecondsTime, 10) + "-" + strconv.FormatInt(sequenceNumber, 10)
+
 	var entry *StreamEntry = &StreamEntry{
-		ID:               ID,
+		ID:               newID,
 		millisecondsTime: millisecondsTime,
 		sequenceNumber:   sequenceNumber,
 		Fields:           fields,
 	}
 
-	err := s.validate(entry)
+	var err error = s.validate(entry)
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +114,9 @@ func (s *Store) createStreamObject() *RedisObject {
 }
 
 func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) (string, error) {
+	s.dataMutex.Lock()
+	defer s.dataMutex.Unlock()
+	
 	redisObj, exists := s.data[key]
 	if exists && redisObj.Type != StreamType {
 		return "", errors.New("ERR WrongType Operation. NOT A STREAM")
@@ -124,6 +134,5 @@ func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) 
 	}
 
 	stream.Entries.PushBack(entry)
-	newID := strconv.FormatInt(entry.millisecondsTime, 10) + "-" + strconv.FormatInt(entry.sequenceNumber, 10)
-	return newID, nil
+	return entry.ID, nil
 }
