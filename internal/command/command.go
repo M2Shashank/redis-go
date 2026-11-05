@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codecrafters-io/redis-starter-go/internal/protocol"
+	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
-func ExecuteCommand(conn net.Conn, cmd *protocol.Command, dataStore *store.Store) {
+func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) {
 	switch cmd.Com {
 
 	case "PING":

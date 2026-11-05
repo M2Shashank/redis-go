@@ -5,7 +5,7 @@ import (
 	"net"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
-	"github.com/codecrafters-io/redis-starter-go/internal/protocol"
+	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/command"
 )
 
@@ -24,7 +24,7 @@ func HandleConn(conn net.Conn, store *store.Store) {
 		readBuffer = append(readBuffer, buff[:n]...)
 
 		for {
-			n, cmd := protocol.ParseRESPCommand(readBuffer)
+			n, cmd := resp.ParseRESPCommand(readBuffer)
 			if cmd == nil || n == 0 {
 				break
 			}
