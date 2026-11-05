@@ -267,8 +267,11 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 			if err2 != nil {
 				return resp.ErrorString.EncodeRESP(err2.Error())
 			}
-			if startSeq == -1 {
-				startSeq = 0
+			startMST = max(startMST, 0)
+			startSeq = max(startSeq, 0)	
+			if endMST == -1 {
+				endMST = 0
+				endSeq = 0
 			}
 
 			entries, err := dataStore.XRange(key, startMST, startSeq, endMST, endSeq)
@@ -289,6 +292,10 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 
 func validateStreamID(ID string) (int64, int64, error) {
 	var mst, seq int64
+	if ID == "-" {
+		return -1, -1, nil
+	}
+
 	if strings.Contains(ID, "-") {
 		var parts []string = strings.Split(ID, "-")
 		if len(parts) != 2 {
