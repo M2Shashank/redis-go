@@ -3,62 +3,46 @@ package resp
 import (
 	"fmt"
 	"strings"
-
-	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
-type EncoderType int 
-
-const (
-	SimpleString EncoderType = iota
- 	ErrorString
-	Integer
-	BulkString
-	Array
-)
-
-func (e EncoderType) EncodeRESP(value any) []byte {
-	switch e {
-		case SimpleString:
-			return []byte("+" + value.(string) + "\r\n")
-		case ErrorString:
-			return []byte("-" + value.(string) + "\r\n")
-		case Integer:
-			return fmt.Appendf([]byte{}, ":%d\r\n", value.(int))
-		case BulkString:
-			var str string = value.(string)
-			if str == "<nil>" {
-				return []byte("$-1\r\n")
-			}
-			var resp string = fmt.Sprintf("$%d\r\n%s\r\n", len(str), str)
-			return []byte(resp)
-		case Array:
-			var list []string = value.([]string)
-			if list == nil {
-				return []byte("*-1\r\n")
-			}
-			var resp strings.Builder
-			fmt.Fprintf(&resp, "*%d\r\n", len(list))
-			for _, v := range list {
-				fmt.Fprintf(&resp, "$%d\r\n%s\r\n", len(v), v)
-			}
-			return []byte(resp.String())
-		default:
-			return []byte("-ERR Unknown Encoder Type\r\n")
-	}
+func Encode(value RESPType) []byte {
+	var builder strings.Builder
+	EncodeRESP(&builder, value)
+	return []byte(builder.String())
 }
 
-func EncodeRESPStream(entry []*store.StreamEntry) []byte {
-	var resp strings.Builder
-	fmt.Fprintf(&resp, "*%d\r\n", len(entry))
-	for _, e := range entry {
-		fmt.Fprintf(&resp, "*2\r\n")
-		fmt.Fprintf(&resp, "$%d\r\n%s\r\n", len(e.ID), e.ID)
-		fmt.Fprintf(&resp, "*%d\r\n", 2*len(e.Fields))
-		for field, value := range e.Fields {
-			fmt.Fprintf(&resp, "$%d\r\n%s\r\n", len(field), field)
-			fmt.Fprintf(&resp, "$%d\r\n%s\r\n", len(value), value)
+func EncodeRESP(builder *strings.Builder, value RESPType) {
+	switch v := value.(type) {
+
+    case SimpleString:
+        fmt.Fprintf(builder, "+%s\r\n", string(v))
+
+    case ErrorString:
+        fmt.Fprintf(builder, "-%s\r\n", string(v))
+
+    case Integer:
+        fmt.Fprintf(builder, ":%d\r\n", int64(v))
+
+    case BulkString:
+        str := string(v)
+        fmt.Fprintf(builder, "$%d\r\n%s\r\n", len(str), str)
+
+    case Null:
+        builder.WriteString("$-1\r\n")
+
+    case Array:
+		if v == nil {
+			fmt.Fprintf(builder, "*-1\r\n")
+			return
 		}
-	}
-	return []byte(resp.String())
+		
+        fmt.Fprintf(builder, "*%d\r\n", len(v))
+
+        for _, item := range v {
+            EncodeRESP(builder, item)
+        }
+
+    default:
+        fmt.Fprintf(builder, "-ERR Unsupported RESP type\r\n")
+    }
 }

@@ -20,6 +20,17 @@ type Stream struct {
 	Entries *DoublyLL[*StreamEntry]
 }
 
+func (s *Store) createStreamObject() *RedisObject {
+	obj := &RedisObject{
+		Type: StreamType,
+		Value: &Stream{
+			Entries: &DoublyLL[*StreamEntry]{},
+		},
+	}
+	return obj
+}
+
+
 func (s *Stream) validate(entry *StreamEntry) error {
 	lastEntry, exists := s.Entries.Back()
 	if !exists {
@@ -101,16 +112,6 @@ func (s *Stream) createStreamEntry(ID string, fields map[string]string) (*Stream
 	}
 
 	return entry, nil
-}
-
-func (s *Store) createStreamObject() *RedisObject {
-	obj := &RedisObject{
-		Type: StreamType,
-		Value: &Stream{
-			Entries: &DoublyLL[*StreamEntry]{},
-		},
-	}
-	return obj
 }
 
 func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) (string, error) {

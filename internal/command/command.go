@@ -1,7 +1,6 @@
 package command
 
 import (
-	"errors"
 	"net"
 	"strconv"
 	"strings"
@@ -11,25 +10,25 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
-var SimpleOK []byte = resp.SimpleString.EncodeRESP("OK")
-var ERRInvalidCommand []byte = resp.ErrorString.EncodeRESP("ERR Invalid Command")
-var ERRWrongType []byte = resp.ErrorString.EncodeRESP("ERR Wrong Type")
+var SimpleOK resp.RESPType = resp.SimpleString("OK")
+var ERRInvalidCommand resp.RESPType = resp.ErrorString("ERR Invalid Command")
+var ERRWrongType resp.RESPType = resp.ErrorString("ERR Wrong Type")
 
-func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []byte {
+func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	switch cmd.Com {
 
 	case "PING":
 		{
-			return resp.SimpleString.EncodeRESP("PONG")
+			return resp.SimpleString("PONG")
 		}
 
 	case "ECHO":
 		{
-			var result []byte
+			var result resp.RESPType
 			if len(cmd.Args) != 1 {
 				result = ERRInvalidCommand
 			} else {
-				result = resp.BulkString.EncodeRESP(cmd.Args[0])
+				result = resp.BulkString(cmd.Args[0])
 			}
 			return result
 		}
@@ -85,13 +84,13 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 
 			value, ok := dataStore.Get(cmd.Args[0])
 
-			var response []byte
+			var result resp.RESPType
 			if !ok {
-				response = resp.BulkString.EncodeRESP("<nil>")
+				result = resp.Null{}
 			} else {
-				response = resp.BulkString.EncodeRESP(value)
+				result = resp.BulkString(value)
 			}
-			return response
+			return result
 		}
 
 	case "RPUSH":
@@ -105,8 +104,8 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 				return ERRWrongType
 			}
 
-			var response []byte = resp.Integer.EncodeRESP(len)
-			return response
+			var result resp.RESPType = resp.Integer(len)
+			return result
 		}
 
 	case "LPUSH":
@@ -120,8 +119,9 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 				return ERRWrongType
 			}
 
-			var response []byte = resp.Integer.EncodeRESP(len)
-			return response
+
+			var result resp.RESPType = resp.Integer(len)
+			return result
 		}
 
 	case "LRANGE":
@@ -137,9 +137,9 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 			}
 
 			var list []string = dataStore.LRange(cmd.Args[0], left, right)
+			var respArray resp.Array = resp.BuildRESPArray(list)
 
-			response := resp.Array.EncodeRESP(list)
-			return response
+			return respArray
 		}
 
 	case "LLEN":
@@ -149,8 +149,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 			}
 
 			var len int = dataStore.LLen(cmd.Args[0])
-			response := resp.Integer.EncodeRESP(len)
-			return response
+			return resp.Integer(len)
 		}
 
 	case "LPOP":
@@ -160,11 +159,11 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 				{
 					value, ok := dataStore.LPop(cmd.Args[0])
 
-					var response []byte
+					var response resp.RESPType
 					if !ok {
-						response = resp.BulkString.EncodeRESP("<nil>")
+						response = resp.Null{}
 					} else {
-						response = resp.BulkString.EncodeRESP(value)
+						response = resp.BulkString(value)
 					}
 					return response
 				}
@@ -174,13 +173,13 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 					if err != nil || popCount < 0 {
 						return ERRInvalidCommand
 					}
-					var response []byte
+					var response resp.RESPType
 
 					values, ok := dataStore.LPopN(cmd.Args[0], popCount)
 					if !ok {
-						response = resp.Array.EncodeRESP(nil)
+						response = resp.Array(nil)
 					} else {
-						response = resp.Array.EncodeRESP(values)
+						response = resp.BuildRESPArray(values)
 					}
 					return response
 				}
@@ -205,13 +204,13 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 
 			value, ok := dataStore.BLPop(key, timeout)
 			if !ok {
-				var lst []string = nil
-				response := resp.Array.EncodeRESP(lst)
-				return response
+				return resp.Array(nil)
 			}
 
-			response := resp.Array.EncodeRESP([]string{key, value})
-			return response
+			var arr []string = []string{key, value}
+			var respArray resp.Array = resp.BuildRESPArray(arr)
+
+			return respArray
 		}
 
 	case "TYPE":
@@ -223,8 +222,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 			var key string = cmd.Args[0]
 			var typeStr string = dataStore.TypeOf(key)
 
-			response := resp.SimpleString.EncodeRESP(typeStr)
-			return response
+			return resp.BulkString(typeStr)
 		}
 
 	case "XADD":
@@ -242,17 +240,16 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 
 			newID, err := dataStore.AddStreamEntry(key, ID, fields)
 			if err != nil {
-				return resp.ErrorString.EncodeRESP(err.Error())
+				return resp.ErrorString(err.Error())
 			}
 
-			response := resp.BulkString.EncodeRESP(newID)
-			return response
+			return resp.BulkString(newID)
 		}
 
 	case "XRANGE":
 		{
 			if len(cmd.Args) != 3 {
-				return resp.ErrorString.EncodeRESP("ERR Invalid Arguments for XRANGE command")
+				return resp.ErrorString("ERR Invalid Arguments for XRANGE command")
 			}
 
 			var key string = cmd.Args[0]
@@ -262,10 +259,10 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 			startMST, startSeq, err1 := validateStreamID(start)
 			endMST, endSeq, err2 := validateStreamID(end)
 			if err1 != nil {
-				return resp.ErrorString.EncodeRESP(err1.Error())
+				return resp.ErrorString(err1.Error())
 			}
 			if err2 != nil {
-				return resp.ErrorString.EncodeRESP(err2.Error())
+				return resp.ErrorString(err2.Error())
 			}
 			startMST = max(startMST, 0)
 			startSeq = max(startSeq, 0)	
@@ -280,10 +277,10 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 
 			entries, err := dataStore.XRange(key, startMST, startSeq, endMST, endSeq)
 			if err != nil {
-				return resp.ErrorString.EncodeRESP(err.Error())
+				return resp.ErrorString(err.Error())
 			}
 
-			response := resp.EncodeRESPStream(entries)
+			response := StreamEntriesToRESP(entries)
 			return response
 		}
 	default:
@@ -292,36 +289,4 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 		}
 
 	}
-}
-
-func validateStreamID(ID string) (int64, int64, error) {
-	var mst, seq int64
-	if ID == "-" {
-		return -1, -1, nil
-	}
-	if ID == "+" {
-		return -2, -2, nil
-	}
-
-	if strings.Contains(ID, "-") {
-		var parts []string = strings.Split(ID, "-")
-		if len(parts) != 2 {
-			return -1, -1, errors.New("ERR Invalid Arguments for XRANGE command")
-		}
-		val1, err1 := strconv.ParseInt(parts[0], 10, 64)
-		val2, err2 := strconv.ParseInt(parts[1], 10, 64)
-		if err1 != nil || err2 != nil {
-			return -1, -1, errors.New("ERR Invalid Arguments for XRANGE command")
-		}
-		mst = val1
-		seq = val2
-	} else {
-		val, err := strconv.ParseInt(ID, 10, 64)
-		if err != nil {
-			return -1, -1, errors.New("ERR Invalid Arguments for XRANGE command")
-		}
-		mst = val
-		seq = -1
-	}
-	return mst, seq, nil
 }

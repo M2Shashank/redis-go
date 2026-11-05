@@ -30,7 +30,9 @@ func HandleConn(conn net.Conn, store *store.Store) {
 			}
 			readBuffer = readBuffer[n:]
 
-			response := command.ExecuteCommand(conn, cmd, store)
+			result := command.ExecuteCommand(conn, cmd, store)
+			response := resp.Encode(result)
+
 			conn.Write(response)
 		}
 	}
