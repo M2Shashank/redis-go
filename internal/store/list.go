@@ -58,8 +58,11 @@ func (s *Store) LRange(key string, start int, stop int) []string {
 	defer s.dataMutex.RUnlock()
 
 	obj, exists := s.data[key]
-	if !exists || obj.Type != ListType {
+	if obj.Type != ListType {
 		return nil
+	}
+	if !exists {
+		return []string{}
 	}
 
 	list := obj.Value.(*DoublyLL)
