@@ -20,7 +20,7 @@ type Stream struct {
 	Entries *DoublyLL[*StreamEntry]
 
 	// {millisecondsTime, *StreamEntry}
-	Address map[int64]*StreamEntry 
+	Address map[int64]*StreamEntry
 }
 
 func (s *Stream) validate(entry *StreamEntry) error {
@@ -159,9 +159,9 @@ func (s *Store) XRange(key string, startMST int64, startSeq int64, endMST int64,
 	streamEntries := redisObj.Value.(*Stream).Entries
 
 	streamEntries.ForEach(func(curr *StreamEntry) {
-		var b1 bool = curr.millisecondsTime > startMST || (curr.millisecondsTime == startMST && curr.sequenceNumber >= startSeq)
-		var b2 bool = curr.millisecondsTime < endMST || (curr.millisecondsTime == endMST && (endSeq != -1 && curr.sequenceNumber <= endSeq || endSeq == -1))
-		if b1 && b2 {
+		afterStart := curr.millisecondsTime > startMST || (curr.millisecondsTime == startMST && curr.sequenceNumber >= startSeq)
+		beforeEnd := curr.millisecondsTime < endMST || (curr.millisecondsTime == endMST && (endSeq != -1 && curr.sequenceNumber <= endSeq || endSeq == -1))
+		if afterStart && beforeEnd {
 			result = append(result, curr)
 		}
 	})

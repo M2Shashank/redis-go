@@ -261,8 +261,11 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 
 			startMST, startSeq, err1 := validateStreamID(start)
 			endMST, endSeq, err2 := validateStreamID(end)
-			if err1 != nil || err2 != nil {
+			if err1 != nil {
 				return resp.ErrorString.EncodeRESP(err1.Error())
+			}
+			if err2 != nil {
+				return resp.ErrorString.EncodeRESP(err2.Error())
 			}
 			if startSeq == -1 {
 				startSeq = 0
@@ -276,7 +279,6 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 			response := resp.EncodeRESPStream(entries)
 			return response
 		}
-
 	default:
 		{
 			return ERRInvalidCommand
@@ -287,7 +289,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 
 func validateStreamID(ID string) (int64, int64, error) {
 	var mst, seq int64
-	if strings.HasPrefix(ID, "-") {
+	if strings.Contains(ID, "-") {
 		var parts []string = strings.Split(ID, "-")
 		if len(parts) != 2 {
 			return -1, -1, errors.New("ERR Invalid Arguments for XRANGE command")
