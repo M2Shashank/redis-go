@@ -1,9 +1,9 @@
 package store
 
 import (
+	"errors"
 	"strconv"
 	"strings"
-	"errors"
 )
 
 type StreamEntry struct {
@@ -36,17 +36,44 @@ func (s *Stream) validate(entry *StreamEntry) error {
 	return nil
 }
 
-func (s *Store) CreateStreamEntry(ID string, fields map[string]string) (*StreamEntry, error) {
+func (s *Stream) createStreamEntry(ID string, fields map[string]string) (*StreamEntry, error) {
 	var nums []string = strings.Split(ID, "-")
 	if len(nums) != 2 {
 		return nil, errors.New("ERR Invalid Arguments for XADD command")
 	}
 
-	var millisecondsTime, err1 = strconv.ParseInt(nums[0], 10, 64)
-	var sequenceNumber, err2 = strconv.ParseInt(nums[1], 10, 64)
-	if err1 != nil || err2 != nil {
+	var millisecondsTime, sequenceNumber int64
+	var err1, err2 error
+
+	millisecondsTime, err1 = strconv.ParseInt(nums[0], 10, 64)
+	if err1 != nil {
 		return nil, errors.New("ERR Invalid Arguments for XADD command")
 	}
+
+	if nums[1] == "*" {
+		var lastEntry, exists = s.Entries.Back()
+		if !exists {
+			if millisecondsTime == 0 {
+				sequenceNumber = 1
+			} else {
+				sequenceNumber = 0
+			}
+		} else {
+			if millisecondsTime < lastEntry.millisecondsTime {
+				return nil, errors.New("ERR The ID specified in XADD is equal or smaller than the target stream top item")
+			} else if millisecondsTime == lastEntry.millisecondsTime {
+				sequenceNumber = lastEntry.sequenceNumber + 1
+			} else {
+				sequenceNumber = 0
+			}
+		}
+	} else {
+		sequenceNumber, err2 = strconv.ParseInt(nums[1], 10, 64)
+		if err2 != nil {
+			return nil, errors.New("ERR Invalid Arguments for XADD command")
+		}
+	}
+
 	if millisecondsTime < 0 || sequenceNumber < 0 {
 		return nil, errors.New("ERR Invalid Arguments for XADD command")
 	}
@@ -54,12 +81,19 @@ func (s *Store) CreateStreamEntry(ID string, fields map[string]string) (*StreamE
 		return nil, errors.New("ERR The ID specified in XADD must be greater than 0-0")
 	}
 
-	return &StreamEntry{
+	var entry *StreamEntry = &StreamEntry{
 		ID:               ID,
 		millisecondsTime: millisecondsTime,
 		sequenceNumber:   sequenceNumber,
 		Fields:           fields,
-	}, nil
+	}
+
+	err := s.validate(entry)
+	if err != nil {
+		return nil, err
+	}
+
+	return entry, nil
 }
 
 func (s *Store) createStreamObject() *RedisObject {
@@ -72,10 +106,10 @@ func (s *Store) createStreamObject() *RedisObject {
 	return obj
 }
 
-func (s *Store) AddStreamEntry(key string, entry *StreamEntry) error {
+func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) (string, error) {
 	redisObj, exists := s.data[key]
 	if exists && redisObj.Type != StreamType {
-		return errors.New("ERR WrongType Operation. NOT A STREAM")
+		return "", errors.New("ERR WrongType Operation. NOT A STREAM")
 	}
 
 	if !exists {
@@ -84,12 +118,12 @@ func (s *Store) AddStreamEntry(key string, entry *StreamEntry) error {
 	}
 
 	stream := redisObj.Value.(*Stream)
-
-	valid := stream.validate(entry)
-	if valid != nil {
-		return valid
+	entry, err := stream.createStreamEntry(ID, fields)
+	if err != nil {
+		return "", err
 	}
 
 	stream.Entries.PushBack(entry)
-	return nil
+	newID := strconv.FormatInt(entry.millisecondsTime, 10) + "-" + strconv.FormatInt(entry.sequenceNumber, 10)
+	return newID, nil
 }

@@ -239,17 +239,12 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 				fields[cmd.Args[i]] = cmd.Args[i+1]
 			}
 
-			entry, err := dataStore.CreateStreamEntry(ID, fields)
+			newID, err := dataStore.AddStreamEntry(key, ID, fields)
 			if err != nil {
 				return resp.ErrorString.EncodeRESP(err.Error())
 			}
 
-			err = dataStore.AddStreamEntry(key, entry)
-			if err != nil {
-				return resp.ErrorString.EncodeRESP(err.Error())
-			}
-
-			response := resp.BulkString.EncodeRESP(ID)
+			response := resp.BulkString.EncodeRESP(newID)
 			return response
 		}
 
