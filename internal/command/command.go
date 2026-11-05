@@ -1,6 +1,7 @@
 package command
 
 import (
+	"errors"
 	"net"
 	"strconv"
 	"strings"
@@ -248,10 +249,63 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 			return response
 		}
 
+	case "XRANGE":
+		{
+			if len(cmd.Args) != 3 {
+				return resp.ErrorString.EncodeRESP("ERR Invalid Arguments for XRANGE command")
+			}
+
+			var key string = cmd.Args[0]
+			var start string = cmd.Args[1]
+			var end string = cmd.Args[2]
+
+			startMST, startSeq, err1 := validateStreamID(start)
+			endMST, endSeq, err2 := validateStreamID(end)
+			if err1 != nil || err2 != nil {
+				return resp.ErrorString.EncodeRESP(err1.Error())
+			}
+			if startSeq == -1 {
+				startSeq = 0
+			}
+
+			entries, err := dataStore.XRange(key, startMST, startSeq, endMST, endSeq)
+			if err != nil {
+				return resp.ErrorString.EncodeRESP(err.Error())
+			}
+
+			response := resp.EncodeRESPStream(entries)
+			return response
+		}
+
 	default:
 		{
 			return ERRInvalidCommand
 		}
 
 	}
+}
+
+func validateStreamID(ID string) (int64, int64, error) {
+	var mst, seq int64
+	if strings.HasPrefix(ID, "-") {
+		var parts []string = strings.Split(ID, "-")
+		if len(parts) != 2 {
+			return -1, -1, errors.New("ERR Invalid Arguments for XRANGE command")
+		}
+		val1, err1 := strconv.ParseInt(parts[0], 10, 64)
+		val2, err2 := strconv.ParseInt(parts[1], 10, 64)
+		if err1 != nil || err2 != nil {
+			return -1, -1, errors.New("ERR Invalid Arguments for XRANGE command")
+		}
+		mst = val1
+		seq = val2
+	} else {
+		val, err := strconv.ParseInt(ID, 10, 64)
+		if err != nil {
+			return -1, -1, errors.New("ERR Invalid Arguments for XRANGE command")
+		}
+		mst = val
+		seq = -1
+	}
+	return mst, seq, nil
 }

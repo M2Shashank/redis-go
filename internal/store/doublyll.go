@@ -1,12 +1,13 @@
 package store
 
-//----- doubly linked list node for list implementation -----
+//----- doubly linked list node -----
 type ListNode[T any] struct {
 	Value T
 	Next  *ListNode[T]
 	Prev  *ListNode[T]
 }
 
+// ------------- doubly linked list implementation --------------
 type DoublyLL[T any] struct {
 	Head, Tail *ListNode[T]
 	Length     int
@@ -75,4 +76,13 @@ func (l *DoublyLL[T]) Back() (T, bool) {
 	return l.Tail.Value, true
 }
 
-// ---------------- end of List Implementation -----------------
+//for each loop
+func (l *DoublyLL[T]) ForEach(f func(value T)) {
+	current := l.Head
+	for current != nil {
+		f(current.Value)
+		current = current.Next
+	}
+}
+
+// ---------- end of DoublyLinkedList Implementation -------------

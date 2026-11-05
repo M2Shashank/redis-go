@@ -3,6 +3,8 @@ package resp
 import (
 	"fmt"
 	"strings"
+
+	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
 type EncoderType int 
@@ -44,4 +46,19 @@ func (e EncoderType) EncodeRESP(value any) []byte {
 		default:
 			return []byte("-ERR Unknown Encoder Type\r\n")
 	}
+}
+
+func EncodeRESPStream(entry []*store.StreamEntry) []byte {
+	var resp strings.Builder
+	fmt.Fprintf(&resp, "*%d\r\n", len(entry))
+	for _, e := range entry {
+		fmt.Fprintf(&resp, "*2\r\n")
+		fmt.Fprintf(&resp, "$%d\r\n%s\r\n", len(e.ID), e.ID)
+		fmt.Fprintf(&resp, "*%d\r\n", 2*len(e.Fields))
+		for field, value := range e.Fields {
+			fmt.Fprintf(&resp, "$%d\r\n%s\r\n", len(field), field)
+			fmt.Fprintf(&resp, "$%d\r\n%s\r\n", len(value), value)
+		}
+	}
+	return []byte(resp.String())
 }

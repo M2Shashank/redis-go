@@ -18,6 +18,9 @@ type StreamEntry struct {
 // data[key] => &RedisObject{ StreamType, &Stream{ Entries: &DoublyLL[StreamEntry]{} }}
 type Stream struct {
 	Entries *DoublyLL[*StreamEntry]
+
+	// {millisecondsTime, *StreamEntry}
+	Address map[int64]*StreamEntry 
 }
 
 func (s *Stream) validate(entry *StreamEntry) error {
@@ -99,6 +102,7 @@ func (s *Stream) createStreamEntry(ID string, fields map[string]string) (*Stream
 	if err != nil {
 		return nil, err
 	}
+	s.Address[millisecondsTime] = entry
 
 	return entry, nil
 }
@@ -108,6 +112,7 @@ func (s *Store) createStreamObject() *RedisObject {
 		Type: StreamType,
 		Value: &Stream{
 			Entries: &DoublyLL[*StreamEntry]{},
+			Address: make(map[int64]*StreamEntry),
 		},
 	}
 	return obj
@@ -135,4 +140,30 @@ func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) 
 
 	stream.Entries.PushBack(entry)
 	return entry.ID, nil
+}
+
+func (s *Store) XRange(key string, startMST int64, startSeq int64, endMST int64, endSeq int64) ([]*StreamEntry, error) {
+	s.dataMutex.RLock()
+	defer s.dataMutex.RUnlock()
+
+	redisObj, exists := s.data[key]
+	if !exists {
+		return []*StreamEntry{}, nil
+	}
+
+	if redisObj.Type != StreamType {
+		return nil, errors.New("ERR WrongType Operation. NOT A STREAM")
+	}
+
+	var result []*StreamEntry = make([]*StreamEntry, 0, 10)
+	streamEntries := redisObj.Value.(*Stream).Entries
+
+	streamEntries.ForEach(func(curr *StreamEntry) {
+		var b1 bool = curr.millisecondsTime > startMST || (curr.millisecondsTime == startMST && curr.sequenceNumber >= startSeq)
+		var b2 bool = curr.millisecondsTime < endMST || (curr.millisecondsTime == endMST && (endSeq != -1 && curr.sequenceNumber <= endSeq || endSeq == -1))
+		if b1 && b2 {
+			result = append(result, curr)
+		}
+	})
+	return result, nil
 }
