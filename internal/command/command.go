@@ -204,7 +204,8 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 
 			value, ok := dataStore.BLPop(key, timeout)
 			if !ok {
-				response := resp.Array.EncodeRESP(nil)
+				var lst []string = nil
+				response := resp.Array.EncodeRESP(lst)
 				return response
 			}
 
