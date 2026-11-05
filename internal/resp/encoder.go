@@ -25,7 +25,7 @@ func (e EncoderType) EncodeRESP(value any) []byte {
 			return fmt.Appendf([]byte{}, ":%d\r\n", value.(int))
 		case BulkString:
 			var str string = value.(string)
-			if str == "" {
+			if str == "<nil>" {
 				return []byte("$-1\r\n")
 			}
 			var resp string = fmt.Sprintf("$%d\r\n%s\r\n", len(str), str)

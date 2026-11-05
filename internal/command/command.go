@@ -86,7 +86,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 
 			var response []byte
 			if !ok {
-				response = resp.BulkString.EncodeRESP("")
+				response = resp.BulkString.EncodeRESP("<nil>")
 			} else {
 				response = resp.BulkString.EncodeRESP(value)
 			}
@@ -161,7 +161,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 
 					var response []byte
 					if !ok {
-						response = resp.BulkString.EncodeRESP("")
+						response = resp.BulkString.EncodeRESP("<nil>")
 					} else {
 						response = resp.BulkString.EncodeRESP(value)
 					}
