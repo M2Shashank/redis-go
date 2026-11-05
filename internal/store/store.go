@@ -19,7 +19,8 @@ func NewStore() *Store {
 }
 
 // to be used when dataMutex is already locked
-func (s *Store) serveWaiters(key string, list *DoublyLL) {
+// Used for List operations Only. BLPOP
+func (s *Store) serveWaiters(key string, list *DoublyLL[string]) {
 	queue, exists := s.waiting[key]
 	if !exists || len(queue) == 0 {
 		return
@@ -54,6 +55,8 @@ func (s *Store) TypeOf(key string) string {
 		return "string"
 	case ListType:
 		return "list"
+	case StreamType:
+		return "stream"
 	default:
 		return "none"
 	}

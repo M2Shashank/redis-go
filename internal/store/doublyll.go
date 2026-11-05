@@ -1,20 +1,21 @@
 package store
 
 //----- doubly linked list node for list implementation -----
-type ListNode struct {
-	Value string
-	Next  *ListNode
-	Prev  *ListNode
+type ListNode[T any] struct {
+	Value T
+	Next  *ListNode[T]
+	Prev  *ListNode[T]
 }
 
-type DoublyLL struct {
-	Head, Tail *ListNode
+
+type DoublyLL[T any] struct {
+	Head, Tail *ListNode[T]
 	Length     int
 }
 
 // methods
-func (l *DoublyLL) PushFront(value string) {
-	var node *ListNode = &ListNode{value, nil, nil}
+func (l *DoublyLL[T]) PushFront(value T) {
+	var node *ListNode[T] = &ListNode[T]{value, nil, nil}
 
 	if l.Head == nil {
 		l.Head = node
@@ -27,8 +28,8 @@ func (l *DoublyLL) PushFront(value string) {
 	l.Length++
 }
 
-func (l *DoublyLL) PushBack(value string) {
-	var node *ListNode = &ListNode{value, nil, nil}
+func (l *DoublyLL[T]) PushBack(value T) {
+	var node *ListNode[T] = &ListNode[T]{value, nil, nil}
 
 	if l.Tail == nil {
 		l.Head = node
@@ -41,9 +42,10 @@ func (l *DoublyLL) PushBack(value string) {
 	l.Length++
 }
 
-func (l *DoublyLL) PopFront() (string, bool) {
+func (l *DoublyLL[T]) PopFront() (T, bool) {
 	if l.Head == nil {
-		return "", false
+		var zero T
+		return zero, false
 	}
 
 	value := l.Head.Value

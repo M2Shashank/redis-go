@@ -9,7 +9,7 @@ func (s *Store) RPush(key string, values []string) int {
 
 	listObj, exists := s.data[key]
 	if !exists {
-		s.data[key] = &RedisObject{ListType, &DoublyLL{}}
+		s.data[key] = &RedisObject{ListType, &DoublyLL[string]{}}
 		listObj = s.data[key]
 	}
 
@@ -17,7 +17,7 @@ func (s *Store) RPush(key string, values []string) int {
 		return -1
 	}
 
-	list := listObj.Value.(*DoublyLL)
+	list := listObj.Value.(*DoublyLL[string])
 	var result = list.Length + len(values)
 
 	for _, value := range values {
@@ -34,7 +34,7 @@ func (s *Store) LPush(key string, values []string) int {
 
 	listObj, exists := s.data[key]
 	if !exists {
-		s.data[key] = &RedisObject{ListType, &DoublyLL{}}
+		s.data[key] = &RedisObject{ListType, &DoublyLL[string]{}}
 		listObj = s.data[key]
 	}
 
@@ -42,7 +42,7 @@ func (s *Store) LPush(key string, values []string) int {
 		return -1
 	}
 
-	list := listObj.Value.(*DoublyLL)
+	list := listObj.Value.(*DoublyLL[string])
 	var result = list.Length + len(values)
 
 	for _, value := range values {
@@ -62,7 +62,7 @@ func (s *Store) LRange(key string, start int, stop int) []string {
 		return []string{}
 	}
 
-	list := obj.Value.(*DoublyLL)
+	list := obj.Value.(*DoublyLL[string])
 
 	if start < 0 {
 		start = list.Length + start
@@ -99,7 +99,7 @@ func (s *Store) LLen(key string) int {
 		return 0
 	}
 
-	return obj.Value.(*DoublyLL).Length
+	return obj.Value.(*DoublyLL[string]).Length
 }
 
 func (s *Store) LPop(key string) (string, bool) {
@@ -111,7 +111,7 @@ func (s *Store) LPop(key string) (string, bool) {
 		return "", false
 	}
 
-	list := obj.Value.(*DoublyLL)
+	list := obj.Value.(*DoublyLL[string])
 	value, done := list.PopFront()
 	return value, done
 }
@@ -142,7 +142,7 @@ func (s *Store) BLPop(key string, timeout float64) (string, bool) {
 			return "", false
 		}
 
-		list := obj.Value.(*DoublyLL)
+		list := obj.Value.(*DoublyLL[string])
 		if list.Length > 0 {
 			value, _ := list.PopFront()
 			s.dataMutex.Unlock()

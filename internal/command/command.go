@@ -226,6 +226,29 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) []
 			return response
 		}
 
+	case "XADD":
+		{
+			if len(cmd.Args) < 3 || len(cmd.Args)%2 != 0 {
+				return ERRInvalidCommand
+			}
+
+			var key string = cmd.Args[0]
+			var ID string = cmd.Args[1]
+			var fields map[string]string = make(map[string]string)
+			for i := 2; i < len(cmd.Args); i += 2 {
+				fields[cmd.Args[i]] = cmd.Args[i+1]
+			}
+
+			entry := dataStore.CreateStreamEntry(ID, fields)
+			ok := dataStore.AddStreamEntry(key, entry)
+			if !ok {
+				return ERRWrongType
+			}
+
+			response := resp.BulkString.EncodeRESP(ID)
+			return response
+		}
+
 	default:
 		{
 			return ERRInvalidCommand
