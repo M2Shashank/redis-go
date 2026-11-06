@@ -19,7 +19,7 @@ func stringHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			case 2:
 				err := dataStore.Set(cmd.Args[0], cmd.Args[1])
 				if err != nil {
-					return resp.ErrorString(err.Error())
+					return resp.SimpleError(err.Error())
 				}
 				return resp.SimpleString("OK")
 
@@ -27,12 +27,12 @@ func stringHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 				{
 					var expiryType string = strings.ToUpper(cmd.Args[2])
 					if expiryType != "EX" && expiryType != "PX" {
-						return resp.ErrorString("ERR Invalid or Unsupported Arguments for SET command")
+						return resp.SimpleError("ERR Invalid or Unsupported Arguments for SET command")
 					}
 
 					expiryTimeMS, err := strconv.Atoi(cmd.Args[3])
 					if err != nil {
-						return resp.ErrorString("ERR Invalid or Unsupported Arguments for SET command")
+						return resp.SimpleError("ERR Invalid or Unsupported Arguments for SET command")
 					}
 					if expiryType == "EX" {
 						expiryTimeMS *= 1000
@@ -44,7 +44,7 @@ func stringHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 					err = dataStore.Set(key, cmd.Args[1])
 					if err != nil {
-						return resp.ErrorString(err.Error())
+						return resp.SimpleError(err.Error())
 					}
 
 					go func() {
@@ -56,7 +56,7 @@ func stringHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 				}
 
 			default:
-				return resp.ErrorString("ERR Invalid or Unsupported Arguments for SET command")
+				return resp.SimpleError("ERR Invalid or Unsupported Arguments for SET command")
 
 			}
 		}
@@ -64,12 +64,12 @@ func stringHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	case "GET":
 		{
 			if len(cmd.Args) != 1 {
-				return resp.ErrorString("ERR Invalid command syntax for GET command")
+				return resp.SimpleError("ERR Invalid command syntax for GET command")
 			}
 
 			value, err := dataStore.Get(cmd.Args[0])
 			if err != nil {
-				return resp.ErrorString(err.Error())
+				return resp.SimpleError(err.Error())
 			}
 
 			var result resp.RESPType
@@ -84,18 +84,18 @@ func stringHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	case "INCR":
 		{
 			if len(cmd.Args) != 1 {
-				return resp.ErrorString("ERR Invalid command syntax for INCR command")
+				return resp.SimpleError("ERR Invalid command syntax for INCR command")
 			}
 
 			newValue, err := dataStore.Incr(cmd.Args[0])
 			if err != nil {
-				return resp.ErrorString(err.Error())
+				return resp.SimpleError(err.Error())
 			}
 			return resp.Integer(newValue)
 		}
 
 	default:
-		return resp.ErrorString("ERR Invalid or Unsupported Command")
+		return resp.SimpleError("ERR Invalid or Unsupported Command")
 
 	}
 }

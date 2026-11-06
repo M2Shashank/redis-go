@@ -14,7 +14,7 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	case "XADD":
 		{
 			if len(cmd.Args) < 3 || len(cmd.Args)%2 != 0 {
-				return resp.ErrorString("ERR Invalid Arguments for XADD command")
+				return resp.SimpleError("ERR Invalid Arguments for XADD command")
 			}
 
 			var key string = cmd.Args[0]
@@ -26,7 +26,7 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 			newID, err := dataStore.AddStreamEntry(key, ID, fields)
 			if err != nil {
-				return resp.ErrorString(err.Error())
+				return resp.SimpleError(err.Error())
 			}
 
 			return resp.BulkString(newID)
@@ -35,7 +35,7 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	case "XRANGE":
 		{
 			if len(cmd.Args) != 3 {
-				return resp.ErrorString("ERR Invalid Arguments for XRANGE command")
+				return resp.SimpleError("ERR Invalid Arguments for XRANGE command")
 			}
 
 			var key string = cmd.Args[0]
@@ -45,10 +45,10 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			startMST, startSeq, err1 := ValidateStreamID(start, "XRANGE")
 			endMST, endSeq, err2 := ValidateStreamID(end, "XRANGE")
 			if err1 != nil {
-				return resp.ErrorString(err1.Error())
+				return resp.SimpleError(err1.Error())
 			}
 			if err2 != nil {
-				return resp.ErrorString(err2.Error())
+				return resp.SimpleError(err2.Error())
 			}
 			startMST = max(startMST, 0)
 			startSeq = max(startSeq, 0)
@@ -63,7 +63,7 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 			entries, err := dataStore.XRange(key, startMST, startSeq, endMST, endSeq)
 			if err != nil {
-				return resp.ErrorString(err.Error())
+				return resp.SimpleError(err.Error())
 			}
 
 			response := StreamEntriesToRESP(entries)
@@ -74,14 +74,14 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		{
 			var length int = len(cmd.Args)
 			if length < 3 || length%2 != 1 {
-				return resp.ErrorString("ERR Invalid Arguments for XREAD command")
+				return resp.SimpleError("ERR Invalid Arguments for XREAD command")
 			}
 
 			var expiryTime int64 = -1
 			if strings.ToUpper(cmd.Args[0]) == "BLOCK" {
 				time, err := strconv.ParseInt(cmd.Args[1], 10, 64)
 				if err != nil || time < 0 {
-					return resp.ErrorString("ERR Invalid Arguments for XREAD command")
+					return resp.SimpleError("ERR Invalid Arguments for XREAD command")
 				}
 				expiryTime = time
 				cmd.Args = cmd.Args[2:]
@@ -89,12 +89,12 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			}
 
 			if length < 3 || length%2 != 1 {
-				return resp.ErrorString("ERR Invalid Arguments for XREAD command")
+				return resp.SimpleError("ERR Invalid Arguments for XREAD command")
 			}
 
 			var str string = strings.ToUpper(cmd.Args[0])
 			if str != "STREAMS" {
-				return resp.ErrorString("ERR Invalid Arguments for XREAD command")
+				return resp.SimpleError("ERR Invalid Arguments for XREAD command")
 			}
 
 			var keys []string = cmd.Args[1 : (length/2)+1]
@@ -110,7 +110,7 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 				}
 				mstNum, seqNum, err := ValidateStreamID(id, "XREAD")
 				if err != nil {
-					return resp.ErrorString(err.Error())
+					return resp.SimpleError(err.Error())
 				}
 				mst[index], seq[index] = mstNum, seqNum
 			}
@@ -119,7 +119,7 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			if empty && expiryTime != -1 {
 				resultNew, err := dataStore.BXReadStreams(keys, mst, seq, expiryTime)
 				if err != nil {
-					return resp.ErrorString(err.Error())
+					return resp.SimpleError(err.Error())
 				}
 				result = resultNew
 			}
@@ -129,7 +129,7 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		}
 
 	default:
-		return resp.ErrorString("ERR Invalid or Unsupported Command")
+		return resp.SimpleError("ERR Invalid or Unsupported Command")
 
 	}
 }

@@ -13,12 +13,12 @@ func listHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	case "RPUSH":
 		{
 			if len(cmd.Args) < 2 {
-				return resp.ErrorString("ERR Invalid command syntax for RPUSH command")
+				return resp.SimpleError("ERR Invalid command syntax for RPUSH command")
 			}
 
 			len, err := dataStore.RPush(cmd.Args[0], cmd.Args[1:])
 			if err != nil {
-				return resp.ErrorString(err.Error())
+				return resp.SimpleError(err.Error())
 			}
 
 			var result resp.RESPType = resp.Integer(len)
@@ -28,12 +28,12 @@ func listHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	case "LPUSH":
 		{
 			if len(cmd.Args) < 2 {
-				return resp.ErrorString("ERR Invalid command syntax for LPUSH command")
+				return resp.SimpleError("ERR Invalid command syntax for LPUSH command")
 			}
 
 			len, err := dataStore.LPush(cmd.Args[0], cmd.Args[1:])
 			if err != nil {
-				return resp.ErrorString(err.Error())
+				return resp.SimpleError(err.Error())
 			}
 
 			var result resp.RESPType = resp.Integer(len)
@@ -43,13 +43,13 @@ func listHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	case "LRANGE":
 		{
 			if len(cmd.Args) != 3 {
-				return resp.ErrorString("ERR Invalid command syntax for LRANGE command")
+				return resp.SimpleError("ERR Invalid command syntax for LRANGE command")
 			}
 
 			left, err1 := strconv.Atoi(cmd.Args[1])
 			right, err2 := strconv.Atoi(cmd.Args[2])
 			if err1 != nil || err2 != nil {
-				return resp.ErrorString("ERR Invalid or Unsupported Arguments for LRANGE command")
+				return resp.SimpleError("ERR Invalid or Unsupported Arguments for LRANGE command")
 			}
 
 			var list []string = dataStore.LRange(cmd.Args[0], left, right)
@@ -61,12 +61,12 @@ func listHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	case "LLEN":
 		{
 			if len(cmd.Args) != 1 {
-				return resp.ErrorString("ERR Invalid command syntax for LLEN command")
+				return resp.SimpleError("ERR Invalid command syntax for LLEN command")
 			}
 
 			len, err := dataStore.LLen(cmd.Args[0])
 			if err != nil {
-				return resp.ErrorString(err.Error())
+				return resp.SimpleError(err.Error())
 			}
 
 			return resp.Integer(len)
@@ -91,12 +91,12 @@ func listHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 				{
 					var popCount, err = strconv.Atoi(cmd.Args[1])
 					if err != nil || popCount < 0 {
-						return resp.ErrorString("ERR Invalid or Unsupported Arguments for LPOP command")
+						return resp.SimpleError("ERR Invalid or Unsupported Arguments for LPOP command")
 					}
 
 					values, err := dataStore.LPopN(cmd.Args[0], popCount)
 					if err != nil {
-						return resp.ErrorString(err.Error())
+						return resp.SimpleError(err.Error())
 					}
 
 					response := BulkArrayToRESP(values)
@@ -104,7 +104,7 @@ func listHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 				}
 			default:
 				{
-					return resp.ErrorString("ERR Invalid command syntax for LPOP command")
+					return resp.SimpleError("ERR Invalid command syntax for LPOP command")
 				}
 			}
 		}
@@ -112,18 +112,18 @@ func listHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	case "BLPOP":
 		{
 			if len(cmd.Args) != 2 {
-				return resp.ErrorString("ERR Invalid command syntax for BLPOP command")
+				return resp.SimpleError("ERR Invalid command syntax for BLPOP command")
 			}
 
 			timeout, err := strconv.ParseFloat(cmd.Args[1], 64)
 			if err != nil || timeout < 0 {
-				return resp.ErrorString("ERR Invalid command syntax for BLPOP command")
+				return resp.SimpleError("ERR Invalid command syntax for BLPOP command")
 			}
 			var key string = cmd.Args[0]
 
 			value, err := dataStore.BLPop(key, timeout)
 			if err != nil {
-				return resp.ErrorString(err.Error())
+				return resp.SimpleError(err.Error())
 			}
 
 			var arr []string = []string{key, value}
@@ -136,7 +136,7 @@ func listHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		}
 
 	default:
-		return resp.ErrorString("ERR Invalid or Unsupported Command")
+		return resp.SimpleError("ERR Invalid or Unsupported Command")
 
 	}
 }

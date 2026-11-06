@@ -14,7 +14,7 @@ func generalHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	case "ECHO":
 		var result resp.RESPType
 		if len(cmd.Args) != 1 {
-			result = resp.ErrorString("ERR Invalid command syntax for ECHO command")
+			result = resp.SimpleError("ERR Invalid command syntax for ECHO command")
 		} else {
 			result = resp.BulkString(cmd.Args[0])
 		}
@@ -22,7 +22,7 @@ func generalHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 	case "TYPE":
 		if len(cmd.Args) != 1 {
-			return resp.ErrorString("ERR Invalid command syntax for TYPE command")
+			return resp.SimpleError("ERR Invalid command syntax for TYPE command")
 		}
 
 		var key string = cmd.Args[0]
@@ -37,11 +37,11 @@ func generalHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 	case "EXEC":
 		{
-			return resp.SimpleString("ERR EXEC without MULTI")
+			return resp.SimpleError("ERR EXEC without MULTI")
 		}
 
 	default:
-		return resp.ErrorString("ERR Invalid or Unsupported Command")
+		return resp.SimpleError("ERR Invalid or Unsupported Command")
 
 	}
 }

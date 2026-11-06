@@ -5,14 +5,14 @@ type RESPType interface {
 }
 
 type SimpleString string
-type ErrorString string
+type SimpleError string
 type Integer int
 type BulkString string
 type Array []RESPType
 type Null struct{}
 
 func (SimpleString) isRESPType() {}
-func (ErrorString) isRESPType() {}
+func (SimpleError) isRESPType() {}
 func (Integer) isRESPType() {}
 func (BulkString) isRESPType() {}
 func (Array) isRESPType() {}

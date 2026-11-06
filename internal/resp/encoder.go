@@ -17,7 +17,7 @@ func EncodeRESP(builder *strings.Builder, value RESPType) {
     case SimpleString:
         fmt.Fprintf(builder, "+%s\r\n", string(v))
 
-    case ErrorString:
+    case SimpleError:
         fmt.Fprintf(builder, "-%s\r\n", string(v))
 
     case Integer:

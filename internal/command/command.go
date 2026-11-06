@@ -23,7 +23,7 @@ func ExecuteCommand(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		return streamHandler(cmd, dataStore)
 
 	default:
-		return resp.ErrorString("ERR Invalid or Unsupported Command")
+		return resp.SimpleError("ERR Invalid or Unsupported Command")
 
 	}
 }
