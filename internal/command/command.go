@@ -13,7 +13,7 @@ func ExecuteCommand(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	case "PING", "ECHO", "TYPE":
 		return generalHandler(cmd, dataStore)
 
-	case "SET", "GET":
+	case "SET", "GET", "INCR":
 		return stringHandler(cmd, dataStore)
 
 	case "RPUSH", "LPUSH", "LRANGE", "LLEN", "LPOP", "BLPOP":
