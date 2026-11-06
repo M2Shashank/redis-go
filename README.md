@@ -31,3 +31,14 @@ Note: This section is for stages 2 and beyond.
    `app/main.go`.
 1. Run `codecrafters submit` to submit your solution to CodeCrafters. Test
    output will be streamed to your terminal.
+
+
+# Notes for Myself
+Things to Restructure or Modify
+
+1. set with expiry has bugs. New set, invalidates earlier
+2. BLPOP connection channels need to be popped of the map if clients disconnects
+3. Error messages everywhere instead of bool . err.Error()
+4. Break down Command to general, list, stream etc
+5. Draw LLD 
+

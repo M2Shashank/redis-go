@@ -119,7 +119,6 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 				return ERRWrongType
 			}
 
-
 			var result resp.RESPType = resp.Integer(len)
 			return result
 		}
@@ -265,7 +264,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 				return resp.ErrorString(err2.Error())
 			}
 			startMST = max(startMST, 0)
-			startSeq = max(startSeq, 0)	
+			startSeq = max(startSeq, 0)
 			if endMST == -1 {
 				endMST = 0
 				endSeq = 0
@@ -276,6 +275,29 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 			}
 
 			entries, err := dataStore.XRange(key, startMST, startSeq, endMST, endSeq)
+			if err != nil {
+				return resp.ErrorString(err.Error())
+			}
+
+			response := StreamEntriesToRESP(entries)
+			return response
+		}
+
+	case "XREAD":
+		{
+			if len(cmd.Args) != 3 {
+				return resp.ErrorString("ERR Invalid Arguments for XREAD command")
+			}
+
+			var key string = cmd.Args[1]
+			var id string = cmd.Args[2]
+
+			startMST, startSeq, err := validateStreamID(id)
+			if err != nil {
+				return resp.ErrorString(err.Error())
+			}
+
+			entries, err := dataStore.XRange(key, startMST, startSeq, -1, -1)
 			if err != nil {
 				return resp.ErrorString(err.Error())
 			}
