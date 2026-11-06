@@ -28,3 +28,16 @@ func StreamEntriesToRESP(entries []*store.StreamEntry) resp.RESPType {
 
     return result
 }
+
+func BulkArrayToRESP(values []string) resp.RESPType {
+	if values == nil {
+		return resp.Array(nil)
+	}
+
+	var respArray resp.Array = resp.Array{}
+	for _, value := range values {
+		respArray = append(respArray, resp.BulkString(value))
+	}
+	return respArray
+}
+

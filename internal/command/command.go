@@ -136,7 +136,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 			}
 
 			var list []string = dataStore.LRange(cmd.Args[0], left, right)
-			var respArray resp.Array = resp.BuildRESPArray(list)
+			var respArray resp.RESPType = BulkArrayToRESP(list)
 
 			return respArray
 		}
@@ -178,7 +178,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 					if !ok {
 						response = resp.Array(nil)
 					} else {
-						response = resp.BuildRESPArray(values)
+						response = BulkArrayToRESP(values)
 					}
 					return response
 				}
@@ -207,7 +207,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 			}
 
 			var arr []string = []string{key, value}
-			var respArray resp.Array = resp.BuildRESPArray(arr)
+			var respArray resp.RESPType = BulkArrayToRESP(arr)
 
 			return respArray
 		}
