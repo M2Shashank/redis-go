@@ -262,7 +262,7 @@ func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTim
 		mst, seq int64
 	}
 	var mp map[string]pair = make(map[string]pair, len(keys))
-	for i, _ := range keys {
+	for i := range keys {
 		mp[keys[i]] = pair{mst[i], seq[i]}
 	}
 
@@ -295,6 +295,16 @@ func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTim
 			redisObj, _ := s.data[keys[i]]
 			redisObj.Value.(*Stream).removeChannel(waiterChannel)
 		}
+	}
+
+	if expiryTimeMS == 0 {
+		msg := <- waiterChannel
+		removeChFromAll()
+		result = append(result, &ModStream{
+			Key:     msg.key,
+			Entries: []*StreamEntry{msg.field},
+		})
+		return result, nil
 	}
 
 	timer := time.NewTimer(expiryTimeMS)
