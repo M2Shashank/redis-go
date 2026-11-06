@@ -302,7 +302,14 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 				return resp.ErrorString(err.Error())
 			}
 
-			response := StreamEntriesToRESP(entries)
+			if len(entries) != 0 && entries[0].ID == id {
+				entries = entries[1:]
+			}
+
+			response := resp.Array{
+				resp.BulkString(key),
+				StreamEntriesToRESP(entries),
+			}
 			return response
 		}
 	default:
