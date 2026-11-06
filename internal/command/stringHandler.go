@@ -81,6 +81,19 @@ func stringHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			return result
 		}
 
+	case "INCR":
+		{
+			if len(cmd.Args) != 1 {
+				return resp.ErrorString("ERR Invalid command syntax for INCR command")
+			}
+
+			newValue, err := dataStore.Incr(cmd.Args[0])
+			if err != nil {
+				return resp.ErrorString(err.Error())
+			}
+			return resp.Integer(newValue)
+		}
+
 	default:
 		return resp.ErrorString("ERR Invalid or Unsupported Command")
 
