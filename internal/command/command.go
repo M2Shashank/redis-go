@@ -255,8 +255,8 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 			var start string = cmd.Args[1]
 			var end string = cmd.Args[2]
 
-			startMST, startSeq, err1 := validateStreamID(start)
-			endMST, endSeq, err2 := validateStreamID(end)
+			startMST, startSeq, err1 := validateStreamID(start, "XRANGE")
+			endMST, endSeq, err2 := validateStreamID(end, "XRANGE")
 			if err1 != nil {
 				return resp.ErrorString(err1.Error())
 			}
@@ -285,34 +285,40 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 
 	case "XREAD":
 		{
-			if len(cmd.Args) != 3 {
+			if len(cmd.Args) < 3 || len(cmd.Args)%2 != 1 {
+				return resp.ErrorString("ERR Invalid Arguments for XREAD command")
+			}
+			if strings.ToUpper(cmd.Args[0]) != "STREAMS" {
 				return resp.ErrorString("ERR Invalid Arguments for XREAD command")
 			}
 
-			var key string = cmd.Args[1]
-			var id string = cmd.Args[2]
+			var keys []string = cmd.Args[1:(len(cmd.Args)/2)+1]
+			var ids []string = cmd.Args[(len(cmd.Args)/2)+1:]
 
-			startMST, startSeq, err := validateStreamID(id)
-			if err != nil {
-				return resp.ErrorString(err.Error())
-			}
+			response := make(resp.Array, 0, len(keys))
+			for i := 0; i < len(keys); i++ {
+				key, id := keys[i], ids[i]
+				startMST, startSeq, err := validateStreamID(id, "XREAD")
+				if err != nil {
+					return resp.ErrorString(err.Error())
+				}
 
-			entries, err := dataStore.XRange(key, startMST, startSeq, -1, -1)
-			if err != nil {
-				return resp.ErrorString(err.Error())
-			}
+				entries, err := dataStore.XRange(key, startMST, startSeq, -1, -1)
+				if err != nil {
+					return resp.ErrorString(err.Error())
+				}
 
-			if len(entries) != 0 && entries[0].ID == id {
-				entries = entries[1:]
-			}
+				if len(entries) != 0 && entries[0].ID == id {
+					entries = entries[1:]
+				}
 
-			streamResponse := resp.Array{
-				resp.BulkString(key),
-				StreamEntriesToRESP(entries),
+				var streamResponse resp.Array = resp.Array{
+					resp.BulkString(key),
+					StreamEntriesToRESP(entries),
+				}
+				response = append(response, streamResponse)
 			}
-			response := resp.Array{
-				streamResponse,
-			}
+			
 			return response
 		}
 	default:

@@ -5,6 +5,18 @@ import (
     "github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
+func BulkArrayToRESP(values []string) resp.RESPType {
+	if values == nil {
+		return resp.Array(nil)
+	}
+
+	var respArray resp.Array = resp.Array{}
+	for _, value := range values {
+		respArray = append(respArray, resp.BulkString(value))
+	}
+	return respArray
+}
+
 func StreamEntriesToRESP(entries []*store.StreamEntry) resp.RESPType {
     result := make(resp.Array, 0, len(entries))
 
@@ -28,16 +40,3 @@ func StreamEntriesToRESP(entries []*store.StreamEntry) resp.RESPType {
 
     return result
 }
-
-func BulkArrayToRESP(values []string) resp.RESPType {
-	if values == nil {
-		return resp.Array(nil)
-	}
-
-	var respArray resp.Array = resp.Array{}
-	for _, value := range values {
-		respArray = append(respArray, resp.BulkString(value))
-	}
-	return respArray
-}
-
