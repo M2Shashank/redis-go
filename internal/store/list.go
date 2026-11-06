@@ -96,7 +96,7 @@ func (s *Store) LRange(key string, start int, stop int) []string {
 		return []string{}
 	}
 
-	list := obj.Value.(*DoublyLL[string])
+	list := obj.Value.(*List).Entries
 
 	if start < 0 {
 		start = list.Length + start
@@ -136,7 +136,7 @@ func (s *Store) LLen(key string) (int, error) {
 		return 0, errors.New("ERR WrongType. NOT A LIST")
 	}
 
-	return obj.Value.(*DoublyLL[string]).Length, nil
+	return obj.Value.(*List).Entries.Length, nil
 }
 
 func (s *Store) LPop(key string) (string, error) {
@@ -151,8 +151,8 @@ func (s *Store) LPop(key string) (string, error) {
 		return "", errors.New("ERR WrongType. NOT A LIST")
 	}
 
-	list := obj.Value.(*DoublyLL[string])
-	value, err := list.PopFront()
+	list := obj.Value.(*List)
+	value, err := list.Entries.PopFront()
 	return value, err
 }
 
@@ -168,11 +168,11 @@ func (s *Store) LPopN(key string, count int) ([]string, error) {
 		return []string{}, errors.New("ERR WrongType. NOT A LIST")
 	}
 
-	list := obj.Value.(*DoublyLL[string])
+	list := obj.Value.(*List)
 	var result []string = make([]string, 0, count)
 
 	for i := 0; i < count; i++ {
-		value, err := list.PopFront()
+		value, err := list.Entries.PopFront()
 		if err != nil {
 			break // Stop popping if the list is empty
 		}
