@@ -17,14 +17,34 @@ type StreamEntry struct {
 // stream object looks like -- map[string]*Stream
 // data[key] => &RedisObject{ StreamType, &Stream{ Entries: &DoublyLL[StreamEntry]{} }}
 type Stream struct {
+	Key     string
 	Entries *DoublyLL[*StreamEntry]
+
+	// list of channels waiting for new entries in this stream. BXREAD
+	// Why list of channels ? more than 1 client can be waiting for new entries in the same stream
+	Notify []chan struct {
+		key   string
+		field *StreamEntry
+	}
 }
 
-func (s *Store) createStreamObject() *RedisObject {
+// For Response Conversion Only. Not used in Store
+// Used in XREAD and BXREAD commands.
+type ModStream struct {
+	Key     string
+	Entries []*StreamEntry
+}
+
+func (s *Store) createStreamObject(key string) *RedisObject {
 	obj := &RedisObject{
 		Type: StreamType,
 		Value: &Stream{
+			Key:     key,
 			Entries: &DoublyLL[*StreamEntry]{},
+			Notify: []chan struct {
+				key   string
+				field *StreamEntry
+			}{},
 		},
 	}
 	return obj
@@ -113,6 +133,34 @@ func (s *Stream) createStreamEntry(ID string, fields map[string]string) (*Stream
 
 	return entry, nil
 }
+
+// Should be called with dataMutex locked
+func (s *Stream) removeChannel(ch chan struct {
+	key   string
+	field *StreamEntry
+}) {
+	var newNotify []chan struct {
+		key   string
+		field *StreamEntry
+	}
+	for _, c := range s.Notify {
+		if c != ch {
+			newNotify = append(newNotify, c)
+		}
+	}
+	s.Notify = newNotify
+}
+
+// Should be called with dataMutex locked
+func (s *Stream) notifyNewEntry(entry *StreamEntry) {
+	for _, ch := range s.Notify {
+		ch <- struct {
+			key   string
+			field *StreamEntry
+		}{s.Key, entry}
+	}
+}
+
 // -----------------------------------------------
 
 func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) (string, error) {
@@ -125,7 +173,7 @@ func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) 
 	}
 
 	if !exists {
-		s.data[key] = s.createStreamObject()
+		s.data[key] = s.createStreamObject(key)
 		redisObj = s.data[key]
 	}
 
@@ -136,6 +184,7 @@ func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) 
 	}
 
 	stream.Entries.PushBack(entry)
+	stream.notifyNewEntry(entry)
 	return entry.ID, nil
 }
 
@@ -167,4 +216,104 @@ func (s *Store) XRange(key string, startMST int64, startSeq int64, endMST int64,
 		}
 	})
 	return result, nil
+}
+
+func (s *Store) XReadStreams(keys []string, mst []int64, seq []int64) ([]*ModStream, bool) {
+	s.dataMutex.RLock()
+	defer s.dataMutex.RUnlock()
+
+	var response []*ModStream = make([]*ModStream, 0, len(keys))
+	for i := 0; i < len(keys); i++ {
+		entries, err := s.XRange(keys[i], mst[i], seq[i], -1, -1)
+		if err != nil {
+			return nil, false
+		}
+
+		if len(entries) != 0 && entries[0].millisecondsTime == mst[i] && entries[0].sequenceNumber == seq[i] {
+			entries = entries[1:]
+		}
+
+		if len(entries) == 0 {
+			continue
+		}
+
+		response = append(response, &ModStream{
+			Key:     keys[i],
+			Entries: entries,
+		})
+	}
+
+	if len(response) == 0 {
+		return nil, true
+	}
+	return response, false
+}
+
+// Blocking XReadStreams to be implemented
+// if a call to BXREAD is made, it will create a channel of key and streamEntry and add it to Notify of all its keys streams
+// Every time a new entry is made to a stream , it will notify all the channels in the Notify list.
+// If an item is added to a channel, BXREAD will take the item and check if its id is strictly greater than its mst and seq.
+// If it is not greater, continue waiting.
+// If it is greater, return the entry and remove the channel from the Notify list of all its keys streams.
+// If the timeout expires, return nil and remove the channel from the Notify list of all its keys streams.
+func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTime int64) ([]*ModStream, error) {
+	var expiryTimeMS time.Duration = time.Duration(expiryTime) * time.Millisecond
+	type pair struct {
+		mst, seq int64
+	}
+	var mp map[string]pair = make(map[string]pair, len(keys))
+	for i, _ := range keys {
+		mp[keys[i]] = pair{mst[i], seq[i]}
+	}
+
+	var result []*ModStream = make([]*ModStream, 0, 1)
+
+	waiterChannel := make(chan struct {
+		key   string
+		field *StreamEntry
+	}, 1)
+
+	s.dataMutex.Lock()
+	for i := 0; i < len(keys); i++ {
+		redisObj, exists := s.data[keys[i]]
+		if !exists {
+			s.data[keys[i]] = s.createStreamObject(keys[i])
+			redisObj = s.data[keys[i]]
+		}
+		if redisObj.Type != StreamType {
+			return nil, errors.New("ERR WrongType Operation. NOT A STREAM")
+		}
+
+		var notifyChList = &redisObj.Value.(*Stream).Notify
+		*notifyChList = append(*notifyChList, waiterChannel)
+	}
+	s.dataMutex.Unlock()
+
+	// func to remove the channel from the Notify list of all its keys streams
+	removeChFromAll := func() {
+		for i := 0; i < len(keys); i++ {
+			redisObj, _ := s.data[keys[i]]
+			redisObj.Value.(*Stream).removeChannel(waiterChannel)
+		}
+	}
+
+	timer := time.NewTimer(expiryTimeMS)
+	for {
+		select {
+		case msg := <-waiterChannel:
+			if msg.field.millisecondsTime > mst[0] || (msg.field.millisecondsTime == mp[msg.key].mst && msg.field.sequenceNumber > mp[msg.key].seq) {
+				result = append(result, &ModStream{
+					Key:     msg.key,
+					Entries: []*StreamEntry{msg.field},
+				})
+
+				removeChFromAll()
+				return result, nil
+			}
+
+		case <-timer.C:
+			removeChFromAll()
+			return nil, errors.New("ERR Timeout")
+		}
+	}
 }

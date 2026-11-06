@@ -7,13 +7,15 @@ import (
 	"strings"
 )
 
-func validateStreamID(ID string, command string) (int64, int64, error) {
+func ValidateStreamID(ID string, command string) (int64, int64, error) {
 	var mst, seq int64
-	if ID == "-" {
-		return -1, -1, nil
-	}
-	if ID == "+" {
-		return -2, -2, nil
+	if command == "XRANGE" {
+		if ID == "-" {
+			return -1, -1, nil
+		}
+		if ID == "+" {
+			return -2, -2, nil
+		}
 	}
 
 	if strings.Contains(ID, "-") {

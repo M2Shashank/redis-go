@@ -8,15 +8,21 @@ type Store struct {
 	data      map[string]*RedisObject
 	dataMutex sync.RWMutex
 
-	waiting map[string][]chan string
+	
 }
 
 func NewStore() *Store {
 	return &Store{
 		data:    make(map[string]*RedisObject),
-		waiting: make(map[string][]chan string),
 	}
 }
+
+
+
+
+
+
+
 
 func (s *Store) TypeOf(key string) string {
 	s.dataMutex.RLock()

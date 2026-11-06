@@ -18,6 +18,9 @@ func BulkArrayToRESP(values []string) resp.RESPType {
 }
 
 func StreamEntriesToRESP(entries []*store.StreamEntry) resp.RESPType {
+	if len(entries) == 0 {
+		return resp.Array(nil)
+	}
     result := make(resp.Array, 0, len(entries))
 
     for _, entry := range entries {
@@ -39,4 +42,30 @@ func StreamEntriesToRESP(entries []*store.StreamEntry) resp.RESPType {
     }
 
     return result
+}
+
+func ModStreamToRESP(input *store.ModStream) resp.RESPType {
+	if input == nil || len(input.Entries) == 0 {
+		return resp.Array(nil)
+	}
+
+	result := resp.Array {
+		resp.BulkString(input.Key),
+		StreamEntriesToRESP(input.Entries),
+	}
+
+	return result
+}
+
+func ModStreamsToRESP(inputs []*store.ModStream) resp.RESPType {
+	if len(inputs) == 0 {
+		return resp.Array(nil)
+	}
+
+	result := make(resp.Array, 0, len(inputs))
+	for _, input := range inputs {
+		result = append(result, ModStreamToRESP(input))
+	}
+
+	return result
 }
