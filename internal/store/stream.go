@@ -313,7 +313,7 @@ func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTim
 
 		case <-timer.C:
 			removeChFromAll()
-			return nil, errors.New("ERR Timeout")
+			return nil, nil
 		}
 	}
 }
