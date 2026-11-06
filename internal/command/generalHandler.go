@@ -30,6 +30,11 @@ func generalHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 		return resp.SimpleString(typeStr)
 
+	case "MULTI":
+		{
+			return resp.SimpleString("OK")
+		}
+
 	default:
 		return resp.ErrorString("ERR Invalid or Unsupported Command")
 
