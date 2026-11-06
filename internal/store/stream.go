@@ -30,10 +30,10 @@ func (s *Store) createStreamObject() *RedisObject {
 	return obj
 }
 
-
+// --------------- Stream Methods ----------------
 func (s *Stream) validate(entry *StreamEntry) error {
-	lastEntry, exists := s.Entries.Back()
-	if !exists {
+	lastEntry, err := s.Entries.Back()
+	if err != nil {
 		return nil
 	}
 
@@ -67,8 +67,8 @@ func (s *Stream) createStreamEntry(ID string, fields map[string]string) (*Stream
 	}
 
 	if ID == "*" || nums[1] == "*" {
-		var lastEntry, exists = s.Entries.Back()
-		if !exists {
+		var lastEntry, err = s.Entries.Back()
+		if err != nil {
 			if millisecondsTime == 0 {
 				sequenceNumber = 1
 			} else {
@@ -113,6 +113,7 @@ func (s *Stream) createStreamEntry(ID string, fields map[string]string) (*Stream
 
 	return entry, nil
 }
+// -----------------------------------------------
 
 func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) (string, error) {
 	s.dataMutex.Lock()

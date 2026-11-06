@@ -1,5 +1,9 @@
 package store
 
+import (
+	"errors"
+)
+
 //----- doubly linked list node -----
 type ListNode[T any] struct {
 	Value T
@@ -42,10 +46,10 @@ func (l *DoublyLL[T]) PushBack(value T) {
 	l.Length++
 }
 
-func (l *DoublyLL[T]) PopFront() (T, bool) {
+func (l *DoublyLL[T]) PopFront() (T, error) {
 	if l.Head == nil {
 		var zero T
-		return zero, false
+		return zero, errors.New("ERR Linked List is empty")
 	}
 
 	value := l.Head.Value
@@ -57,23 +61,23 @@ func (l *DoublyLL[T]) PopFront() (T, bool) {
 	}
 	l.Length--
 
-	return value, true
+	return value, nil
 }
 
-func (l *DoublyLL[T]) Front() (T, bool) {
+func (l *DoublyLL[T]) Front() (T, error) {
 	if l.Head == nil {
 		var zero T
-		return zero, false
+		return zero, errors.New("ERR Linked List is empty")
 	}
-	return l.Head.Value, true
+	return l.Head.Value, nil
 }
 
-func (l *DoublyLL[T]) Back() (T, bool) {
+func (l *DoublyLL[T]) Back() (T, error) {
 	if l.Tail == nil {
 		var zero T
-		return zero, false
+		return zero, errors.New("ERR Linked List is empty")
 	}
-	return l.Tail.Value, true
+	return l.Tail.Value, nil
 }
 
 //for each loop

@@ -11,8 +11,6 @@ import (
 )
 
 var SimpleOK resp.RESPType = resp.SimpleString("OK")
-var ERRInvalidCommand resp.RESPType = resp.ErrorString("ERR Invalid Command")
-var ERRWrongType resp.RESPType = resp.ErrorString("ERR Wrong Type")
 
 func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	switch cmd.Com {
@@ -26,7 +24,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 		{
 			var result resp.RESPType
 			if len(cmd.Args) != 1 {
-				result = ERRInvalidCommand
+				result = resp.ErrorString("ERR Invalid command syntax for ECHO command")
 			} else {
 				result = resp.BulkString(cmd.Args[0])
 			}
@@ -38,19 +36,22 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 			switch len(cmd.Args) {
 
 			case 2:
-				dataStore.Set(cmd.Args[0], cmd.Args[1])
+				err := dataStore.Set(cmd.Args[0], cmd.Args[1])
+				if err != nil {
+					return resp.ErrorString(err.Error())
+				}
 				return SimpleOK
 
 			case 4:
 				{
 					var expiryType string = strings.ToUpper(cmd.Args[2])
 					if expiryType != "EX" && expiryType != "PX" {
-						return ERRInvalidCommand
+						return resp.ErrorString("ERR Invalid or Unsupported Arguments for SET command")
 					}
 
 					expiryTimeMS, err := strconv.Atoi(cmd.Args[3])
 					if err != nil {
-						return ERRInvalidCommand
+						return resp.ErrorString("ERR Invalid or Unsupported Arguments for SET command")
 					}
 					if expiryType == "EX" {
 						expiryTimeMS *= 1000
@@ -60,7 +61,10 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 
 					var key string = cmd.Args[0]
 
-					dataStore.Set(key, cmd.Args[1])
+					err = dataStore.Set(key, cmd.Args[1])
+					if err != nil {
+						return resp.ErrorString(err.Error())
+					}
 
 					go func() {
 						time.Sleep(expiryDuration)
@@ -71,7 +75,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 				}
 
 			default:
-				return ERRInvalidCommand
+				return resp.ErrorString("ERR Invalid or Unsupported Arguments for SET command")
 
 			}
 		}
@@ -79,13 +83,16 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 	case "GET":
 		{
 			if len(cmd.Args) != 1 {
-				return ERRInvalidCommand
+				return resp.ErrorString("ERR Invalid command syntax for GET command")
 			}
 
-			value, ok := dataStore.Get(cmd.Args[0])
+			value, err := dataStore.Get(cmd.Args[0])
+			if err != nil {
+				return resp.ErrorString(err.Error())
+			}
 
 			var result resp.RESPType
-			if !ok {
+			if value == "" {
 				result = resp.Null{}
 			} else {
 				result = resp.BulkString(value)
@@ -96,12 +103,12 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 	case "RPUSH":
 		{
 			if len(cmd.Args) < 2 {
-				return ERRInvalidCommand
+				return resp.ErrorString("ERR Invalid command syntax for RPUSH command")
 			}
 
-			len := dataStore.RPush(cmd.Args[0], cmd.Args[1:])
-			if len == -1 {
-				return ERRWrongType
+			len, err := dataStore.RPush(cmd.Args[0], cmd.Args[1:])
+			if err != nil {
+				return resp.ErrorString(err.Error())
 			}
 
 			var result resp.RESPType = resp.Integer(len)
@@ -111,12 +118,12 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 	case "LPUSH":
 		{
 			if len(cmd.Args) < 2 {
-				return ERRInvalidCommand
+				return resp.ErrorString("ERR Invalid command syntax for LPUSH command")
 			}
 
-			len := dataStore.LPush(cmd.Args[0], cmd.Args[1:])
-			if len == -1 {
-				return ERRWrongType
+			len, err := dataStore.LPush(cmd.Args[0], cmd.Args[1:])
+			if err != nil {
+				return resp.ErrorString(err.Error())
 			}
 
 			var result resp.RESPType = resp.Integer(len)
@@ -126,13 +133,13 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 	case "LRANGE":
 		{
 			if len(cmd.Args) != 3 {
-				return ERRInvalidCommand
+				return resp.ErrorString("ERR Invalid command syntax for LRANGE command")
 			}
 
 			left, err1 := strconv.Atoi(cmd.Args[1])
 			right, err2 := strconv.Atoi(cmd.Args[2])
 			if err1 != nil || err2 != nil {
-				return ERRInvalidCommand
+				return resp.ErrorString("ERR Invalid or Unsupported Arguments for LRANGE command")
 			}
 
 			var list []string = dataStore.LRange(cmd.Args[0], left, right)
@@ -144,10 +151,14 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 	case "LLEN":
 		{
 			if len(cmd.Args) != 1 {
-				return ERRInvalidCommand
+				return resp.ErrorString("ERR Invalid command syntax for LLEN command")
 			}
 
-			var len int = dataStore.LLen(cmd.Args[0])
+			len, err := dataStore.LLen(cmd.Args[0])
+			if err != nil {
+				return resp.ErrorString(err.Error())
+			}
+
 			return resp.Integer(len)
 		}
 
@@ -156,10 +167,10 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 			switch len(cmd.Args) {
 			case 1:
 				{
-					value, ok := dataStore.LPop(cmd.Args[0])
+					value, err := dataStore.LPop(cmd.Args[0])
 
 					var response resp.RESPType
-					if !ok {
+					if err != nil {
 						response = resp.Null{}
 					} else {
 						response = resp.BulkString(value)
@@ -170,21 +181,20 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 				{
 					var popCount, err = strconv.Atoi(cmd.Args[1])
 					if err != nil || popCount < 0 {
-						return ERRInvalidCommand
+						return resp.ErrorString("ERR Invalid or Unsupported Arguments for LPOP command")
 					}
-					var response resp.RESPType
 
-					values, ok := dataStore.LPopN(cmd.Args[0], popCount)
-					if !ok {
-						response = resp.Array(nil)
-					} else {
-						response = BulkArrayToRESP(values)
+					values, err := dataStore.LPopN(cmd.Args[0], popCount)
+					if err != nil {
+						return resp.ErrorString(err.Error())
 					}
+
+					response := BulkArrayToRESP(values)
 					return response
 				}
 			default:
 				{
-					return ERRInvalidCommand
+					return resp.ErrorString("ERR Invalid command syntax for LPOP command")
 				}
 			}
 		}
@@ -192,18 +202,18 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 	case "BLPOP":
 		{
 			if len(cmd.Args) != 2 {
-				return ERRInvalidCommand
+				return resp.ErrorString("ERR Invalid command syntax for BLPOP command")
 			}
 
 			timeout, err := strconv.ParseFloat(cmd.Args[1], 64)
 			if err != nil || timeout < 0 {
-				return ERRInvalidCommand
+				return resp.ErrorString("ERR Invalid command syntax for BLPOP command")
 			}
 			var key string = cmd.Args[0]
 
-			value, ok := dataStore.BLPop(key, timeout)
-			if !ok {
-				return resp.Array(nil)
+			value, err := dataStore.BLPop(key, timeout)
+			if err != nil {
+				return resp.ErrorString(err.Error())
 			}
 
 			var arr []string = []string{key, value}
@@ -215,7 +225,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 	case "TYPE":
 		{
 			if len(cmd.Args) != 1 {
-				return ERRInvalidCommand
+				return resp.ErrorString("ERR Invalid command syntax for TYPE command")
 			}
 
 			var key string = cmd.Args[0]
@@ -227,7 +237,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 	case "XADD":
 		{
 			if len(cmd.Args) < 3 || len(cmd.Args)%2 != 0 {
-				return ERRInvalidCommand
+				return resp.ErrorString("ERR Invalid Arguments for XADD command")
 			}
 
 			var key string = cmd.Args[0]
@@ -323,7 +333,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 		}
 	default:
 		{
-			return ERRInvalidCommand
+			return resp.ErrorString("ERR Invalid or Unsupported Command")
 		}
 
 	}
