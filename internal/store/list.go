@@ -1,8 +1,8 @@
 package store
 
 import (
-	"time"
 	"errors"
+	"time"
 )
 
 type List struct {
@@ -12,7 +12,7 @@ type List struct {
 
 func (s *Store) createListObject() *RedisObject {
 	obj := &RedisObject{
-		Type:  ListType,
+		Type: ListType,
 		Value: &List{
 			Entries: &DoublyLL[string]{},
 			Waiters: []chan string{},
@@ -233,6 +233,6 @@ func (s *Store) BLPop(key string, timeout float64) (string, error) {
 
 		s.dataMutex.Unlock()
 
-		return "", errors.New("ERR Timeout")
+		return "", nil
 	}
 }
