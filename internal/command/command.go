@@ -306,9 +306,12 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 				entries = entries[1:]
 			}
 
-			response := resp.Array{
+			streamResponse := resp.Array{
 				resp.BulkString(key),
 				StreamEntriesToRESP(entries),
+			}
+			response := resp.Array{
+				streamResponse,
 			}
 			return response
 		}
