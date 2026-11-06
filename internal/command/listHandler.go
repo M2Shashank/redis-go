@@ -127,6 +127,9 @@ func listHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			}
 
 			var arr []string = []string{key, value}
+			if value == "" {
+				arr = nil
+			}
 			var respArray resp.RESPType = BulkArrayToRESP(arr)
 
 			return respArray
