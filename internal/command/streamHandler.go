@@ -104,6 +104,10 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 			// validate all ids
 			for index, id := range ids {
+				if id == "$" {
+					mst[index], seq[index] = -1, -1
+					continue
+				}
 				mstNum, seqNum, err := ValidateStreamID(id, "XREAD")
 				if err != nil {
 					return resp.ErrorString(err.Error())

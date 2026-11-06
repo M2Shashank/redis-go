@@ -134,6 +134,10 @@ func (s *Stream) createStreamEntry(ID string, fields map[string]string) (*Stream
 	return entry, nil
 }
 
+func (s *Stream) LastEntry() (*StreamEntry, error) {
+	return s.Entries.Back()
+}
+
 // Should be called with dataMutex locked
 func (s *Stream) removeChannel(ch chan struct {
 	key   string
@@ -224,6 +228,10 @@ func (s *Store) XReadStreams(keys []string, mst []int64, seq []int64) ([]*ModStr
 
 	var response []*ModStream = make([]*ModStream, 0, len(keys))
 	for i := 0; i < len(keys); i++ {
+		if mst[i] == -1 && seq[i] == -1 {
+			continue
+		}
+		
 		entries, err := s.XRange(keys[i], mst[i], seq[i], -1, -1)
 		if err != nil {
 			return nil, false
@@ -298,7 +306,7 @@ func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTim
 	}
 
 	if expiryTimeMS == 0 {
-		msg := <- waiterChannel
+		msg := <-waiterChannel
 		removeChFromAll()
 		result = append(result, &ModStream{
 			Key:     msg.key,
