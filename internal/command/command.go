@@ -221,7 +221,7 @@ func ExecuteCommand(conn net.Conn, cmd *resp.Command, dataStore *store.Store) re
 			var key string = cmd.Args[0]
 			var typeStr string = dataStore.TypeOf(key)
 
-			return resp.BulkString(typeStr)
+			return resp.SimpleString(typeStr)
 		}
 
 	case "XADD":
