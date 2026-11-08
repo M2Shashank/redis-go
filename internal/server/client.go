@@ -19,6 +19,7 @@ func NewClient(conn *net.Conn) *Client {
 	return &Client{
 		Conn: conn,
 		QueuedCmds: collections.NewQueue[*resp.Command](),
+		watchedKeys: make(map[string]bool),
 		inTransaction: false,
 	}
 }
