@@ -22,6 +22,7 @@ func HandleConn(client *Client, s *store.Store) {
 			fmt.Println("Error reading from connection: ", err.Error())
 			break
 		}
+		fmt.Printf("Read %d bytes from connection: %s\n", n, string(buff[:n]))
 
 		readBuffer = append(readBuffer, buff[:n]...)
 

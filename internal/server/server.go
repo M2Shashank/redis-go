@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"sync"
 
+	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
@@ -32,16 +34,16 @@ func NewServer(port int, addr string, dataStore *store.Store) *Server {
 
 //************* Main Function. Accepts Client Connections ****************
 
-func Start(port int, addr string, dataStore *store.Store, role string) {
-	server := NewServer(port, addr, dataStore)
-	server.infoReplication(role)
-
+func Start(port int, addr string, dataStore *store.Store, masterAddr string) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
+	server := NewServer(port, addr, dataStore)
 	fmt.Printf("Server listening on, %v\n", lis.Addr())
+
+	server.infoReplication(masterAddr)
 
 	for {
 		conn, err := lis.Accept()
@@ -63,11 +65,21 @@ func Start(port int, addr string, dataStore *store.Store, role string) {
 
 // ------ Server Methods to manage Server info ------
 
-func (s *Server) infoReplication(role string) {
-	s.replicationInfo["role"] = role
-	if role == "master" {
+func (s *Server) infoReplication(masterAddr string) {
+	if masterAddr == "" {
+		s.replicationInfo["role"] = "master"
 		s.replicationInfo["master_replid"] = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"
 		s.replicationInfo["master_repl_offset"] = "0"
+	} else {
+		parts := strings.Split(masterAddr, " ")
+		masterhost := fmt.Sprintf("%s:%s", parts[0], parts[1])
+
+		s.replicationInfo["role"] = "slave"
+		s.replicationInfo["master_host"] = parts[0]
+		s.replicationInfo["master_port"] = parts[1]
+
+		// connect to master and send ping, Replconf, psync commands to initiate replication
+		s.connectToMaster(masterhost)
 	}
 }
 
@@ -86,3 +98,23 @@ func (s *Server) addClient(client *Client) {
 }
 
 // ----------------------------------------------------
+func (s *Server) connectToMaster(masterAddr string) {
+	conn, err := net.Dial("tcp", masterAddr)
+	if err != nil {
+		fmt.Println("Error connecting to master: ", err.Error())
+		return
+	}
+
+	var connArray resp.Array = make(resp.Array, 0, 4)
+	connArray = append(connArray, resp.BulkString("PING"))
+	connArray = append(connArray, resp.BulkString("REPLCONF"))
+	connArray = append(connArray, resp.BulkString("REPLCONF"))
+	connArray = append(connArray, resp.BulkString("PSYNC"))
+	response := resp.Encode(connArray)
+	_, err = conn.Write(response)
+	if err != nil {
+		fmt.Println("Error sending commands to master: ", err.Error())
+		return
+	}
+	fmt.Printf("Connected to master at %s", masterAddr)
+}
