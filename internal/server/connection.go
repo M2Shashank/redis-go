@@ -35,7 +35,7 @@ func HandleConn(conn net.Conn, s *store.Store) {
 			}
 			readBuffer = readBuffer[n:]
 
-			if cmd.Com == "EXEC" {
+			if cmd.Com == "EXEC" && inQueued {
 				var results resp.Array = make([]resp.RESPType, 0, queuedCommands.Size())
 				for !queuedCommands.Empty() {
 					c := queuedCommands.Pop()
