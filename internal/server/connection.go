@@ -23,8 +23,6 @@ func HandleConn(client *Client, s *store.Store) {
 		readBuffer = append(readBuffer, buff[:n]...)
 
 		for {
-			fmt.Println("Read buffer: ", string(readBuffer))
-
 			n, cmd := resp.ParseRESPCommand(readBuffer)
 			if cmd == nil || n == 0 {
 				break
@@ -74,22 +72,25 @@ func HandleConn(client *Client, s *store.Store) {
 					continue
 				}
 
+				var response []byte
 				if !client.isValidTransaction(s) {
-					response := resp.Encode(resp.Array(nil))
-					(*client.Conn).Write(response)
-					client.inTransaction = false
+					response = resp.Encode(resp.Array(nil))
 				} else {
 					var results resp.Array = make([]resp.RESPType, 0, client.queuedCmds.Size())
-					for !client.queuedCmds.Empty() {
+					for {
+						if client.queuedCmds.Empty() {
+							break
+						}
 						c := client.queuedCmds.Pop()
 						result := command.ExecuteCommand(c, s)
 						results = append(results, result)
 					}
-					response := resp.Encode(results)
-					client.inTransaction = false
-					(*client.Conn).Write(response)
+					response = resp.Encode(results)
 				}
+				(*client.Conn).Write(response)
+				client.inTransaction = false
 				client.clearWatchedKeys()
+				client.queuedCmds.Clear()
 				continue
 			}
 
