@@ -32,7 +32,13 @@ func HandleConn(client *Client, s *store.Store) {
 			readBuffer = readBuffer[n:]
 
 			if cmd.Com == "WATCH" {
-				result := resp.SimpleString("OK")
+				var result resp.RESPType
+				if client.inTransaction {
+					result = resp.SimpleError("ERR WATCH inside MULTI is not allowed")
+				} else {
+					client.watchedKeys[cmd.Args[0]] = true
+					result = resp.SimpleString("OK")
+				}
 				response := resp.Encode(result)
 				(*client.Conn).Write(response)
 				continue

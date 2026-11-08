@@ -11,6 +11,7 @@ type Client struct {
 	Conn *net.Conn
 
 	QueuedCmds *collections.Queue[*resp.Command]
+	watchedKeys map[string]bool
 	inTransaction bool
 }
 
