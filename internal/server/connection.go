@@ -46,6 +46,13 @@ func HandleConn(client *Client, s *store.Store) {
 				continue
 			}
 
+			if cmd.Com == "UNWATCH" {
+				client.clearWatchedKeys()
+				response := resp.Encode(resp.SimpleString("OK"))
+				(*client.Conn).Write(response)
+				continue
+			}
+
 			if cmd.Com == "MULTI" {
 				var result resp.RESPType
 				if client.inTransaction {
