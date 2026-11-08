@@ -9,12 +9,14 @@ import (
 )
 
 func HandleConn(client *Client, s *store.Store) {
-	defer (*client.Conn).Close()
+	defer func() {
+		(client.Conn).Close()
+	}()
 	var buff []byte = make([]byte, 1024)
 	var readBuffer []byte
 
 	for {
-		n, err := (*client.Conn).Read(buff)
+		n, err := (client.Conn).Read(buff)
 		if err != nil {
 			fmt.Println("Error reading from connection: ", err.Error())
 			break
@@ -33,6 +35,8 @@ func HandleConn(client *Client, s *store.Store) {
 			switch cmd.Com {
 			case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
 				result = client.TransactionHandler(cmd, s)
+			case "INFO":
+				result = InfoHandler(cmd, client.Server)
 			default:
 				if client.inTransaction {
 					client.queuedCmds.Push(cmd)
@@ -44,7 +48,7 @@ func HandleConn(client *Client, s *store.Store) {
 
 			response := resp.Encode(result)
 
-			(*client.Conn).Write(response)
+			(client.Conn).Write(response)
 		}
 	}
 }

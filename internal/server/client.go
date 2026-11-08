@@ -12,16 +12,18 @@ import (
 // QueuedCmds and watchKeys are stored per client - For transactoin support ( MULTI, EXEC, WATCH, DISCARD )
 // Mutex is redundant sice each client handled in a separate go routine. No concurrent access to client data.
 type Client struct {
-	Conn *net.Conn
+	Conn net.Conn
+	Server *Server
 
 	queuedCmds *collections.Queue[*resp.Command]
 	watchedKeys map[string]int64
 	inTransaction bool
 }
 
-func NewClient(conn *net.Conn) *Client {
+func NewClient(conn net.Conn, server *Server) *Client {
 	return &Client{
 		Conn: conn,
+		Server: server,
 		queuedCmds: collections.NewQueue[*resp.Command](),
 		watchedKeys: make(map[string]int64),
 		inTransaction: false,
