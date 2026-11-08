@@ -1,9 +1,9 @@
 package server
 
 import (
+	"github.com/codecrafters-io/redis-starter-go/internal/command"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
-	"github.com/codecrafters-io/redis-starter-go/internal/command"
 )
 
 // ------ Transaction Commands Implementation -------
@@ -72,9 +72,10 @@ func (c *Client) HandleExec(s *store.Store) resp.RESPType {
 }
 
 func (c *Client) HandleDiscard() resp.RESPType {
-	c.clearTransactionState()
-	if c.inTransaction {
-		return resp.SimpleString("OK")
+	if !c.inTransaction {
+		return resp.SimpleError("ERR DISCARD without MULTI")
 	}
-	return resp.SimpleError("ERR DISCARD without MULTI")
+
+	c.clearTransactionState()
+	return resp.SimpleString("OK")
 }
