@@ -1,32 +1,32 @@
 package server
 
 import (
+	"fmt"
 	"net"
 	"os"
-	"fmt"
 	"sync"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
 type Server struct {
-	Port int
-	Addr string
+	Port      int
+	Addr      string
 	DataStore *store.Store
 
-	Connections map[*Client]struct {} // remote address to client mapping
-	ServerMutex sync.RWMutex // to protect the Connections map
-	replicationInfo map[string]string // to store replication info like master host, port, etc.
+	Connections     map[*Client]struct{} // remote address to client mapping
+	ServerMutex     sync.RWMutex         // to protect the Connections map
+	replicationInfo map[string]string    // to store replication info like master host, id, etc.
 }
 
-func NewServer(port int,addr string, dataStore *store.Store) *Server {
-	return &Server {
-		Port: port,
-		Addr: addr,
-		DataStore: dataStore,
-		Connections: make(map[*Client]struct {}),
+func NewServer(port int, addr string, dataStore *store.Store) *Server {
+	return &Server{
+		Port:            port,
+		Addr:            addr,
+		DataStore:       dataStore,
+		Connections:     make(map[*Client]struct{}),
 		replicationInfo: make(map[string]string),
-		ServerMutex: sync.RWMutex{},
+		ServerMutex:     sync.RWMutex{},
 	}
 }
 
@@ -34,7 +34,7 @@ func NewServer(port int,addr string, dataStore *store.Store) *Server {
 
 func Start(port int, addr string, dataStore *store.Store, role string) {
 	server := NewServer(port, addr, dataStore)
-	server.replicationInfo["role"] = role
+	server.infoReplication(role)
 
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -53,7 +53,7 @@ func Start(port int, addr string, dataStore *store.Store, role string) {
 		}
 
 		client := NewClient(conn, server)
-		server.AddClient(client)
+		server.addClient(client)
 
 		go HandleConn(client, dataStore)
 	}
@@ -61,18 +61,28 @@ func Start(port int, addr string, dataStore *store.Store, role string) {
 
 // ******************************************************************
 
-// ------------ Server Methods to manage clients --------------
+// ------ Server Methods to manage Server info ------
 
-func (s *Server) RemoveClient(client *Client) {
+func (s *Server) infoReplication(role string) {
+	s.replicationInfo["role"] = role
+	if role == "master" {
+		s.replicationInfo["master_replid"] = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"
+		s.replicationInfo["master_repl_offset"] = "0"
+	}
+}
+
+// -------- Server Methods to manage clients ---------
+
+func (s *Server) removeClient(client *Client) {
 	s.ServerMutex.Lock()
 	defer s.ServerMutex.Unlock()
 	delete(s.Connections, client)
 }
 
-func (s *Server) AddClient(client *Client) {
+func (s *Server) addClient(client *Client) {
 	s.ServerMutex.Lock()
 	defer s.ServerMutex.Unlock()
 	s.Connections[client] = struct{}{}
 }
 
-// -------------------------------------------------------------
+// ----------------------------------------------------

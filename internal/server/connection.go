@@ -10,6 +10,7 @@ import (
 
 func HandleConn(client *Client, s *store.Store) {
 	defer func() {
+		client.Server.removeClient(client)
 		(client.Conn).Close()
 	}()
 	var buff []byte = make([]byte, 1024)
