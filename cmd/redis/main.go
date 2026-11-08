@@ -16,6 +16,7 @@ var dataStore *store.Store
 func init() {
 	dataStore = store.NewStore()
 	flag.IntVar(&port, "port", 6379, "Port to listen on")
+	flag.IntVar(&port, "p", 6379, "Port to listen on (shorthand)")
 }
 
 func main() {
@@ -28,7 +29,7 @@ func main() {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
-	fmt.Printf("Server listening on port 6379, %v\n", lis.Addr())
+	fmt.Printf("Server listening on, %v\n", lis.Addr())
 
 	for {
 		conn, err := lis.Accept()

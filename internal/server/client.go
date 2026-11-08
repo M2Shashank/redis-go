@@ -50,3 +50,10 @@ func (c *Client) isValidTransaction(s *store.Store) bool {
 	}
 	return true
 }
+
+// used in transaction.go
+func (c *Client) clearTransactionState() {
+	c.inTransaction = false
+	c.clearWatchedKeys()
+	c.clearQueuedCmds()
+}

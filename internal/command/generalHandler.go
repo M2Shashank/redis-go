@@ -30,6 +30,10 @@ func generalHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 		return resp.SimpleString(typeStr)
 
+	case "INFO":
+		result := resp.BulkString("# Replication\r\nrole:master\r\n")
+		return result
+
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")
 

@@ -29,94 +29,19 @@ func HandleConn(client *Client, s *store.Store) {
 			}
 			readBuffer = readBuffer[n:]
 
-			if cmd.Com == "WATCH" {
-				var result resp.RESPType
+			var result resp.RESPType
+			switch cmd.Com {
+			case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
+				result = client.TransactionHandler(cmd, s)
+			default:
 				if client.inTransaction {
-					result = resp.SimpleError("ERR WATCH inside MULTI is not allowed")
+					client.queuedCmds.Push(cmd)
+					result = resp.SimpleString("QUEUED")
 				} else {
-					for _, key := range cmd.Args {
-						client.setWatchKey(key, s)
-					}
-					result = resp.SimpleString("OK")
+					result = command.ExecuteCommand(cmd, s)
 				}
-				response := resp.Encode(result)
-				(*client.Conn).Write(response)
-				continue
 			}
 
-			if cmd.Com == "UNWATCH" {
-				client.clearWatchedKeys()
-				response := resp.Encode(resp.SimpleString("OK"))
-				(*client.Conn).Write(response)
-				continue
-			}
-
-			if cmd.Com == "MULTI" {
-				var result resp.RESPType
-				if client.inTransaction {
-					result = resp.SimpleError("ERR MULTI calls can not be nested")
-				} else {
-					result = resp.SimpleString("OK")
-					client.inTransaction = true
-				}
-				response := resp.Encode(result)
-				(*client.Conn).Write(response)
-				continue
-			}
-
-			if cmd.Com == "EXEC" {
-				if !client.inTransaction {
-					result := resp.SimpleError("ERR EXEC without MULTI")
-					response := resp.Encode(result)
-					(*client.Conn).Write(response)
-					continue
-				}
-
-				var response []byte
-				if !client.isValidTransaction(s) {
-					response = resp.Encode(resp.Array(nil))
-				} else {
-					var results resp.Array = make([]resp.RESPType, 0, client.queuedCmds.Size())
-					for {
-						if client.queuedCmds.Empty() {
-							break
-						}
-						c := client.queuedCmds.Pop()
-						result := command.ExecuteCommand(c, s)
-						results = append(results, result)
-					}
-					response = resp.Encode(results)
-				}
-				(*client.Conn).Write(response)
-				client.inTransaction = false
-				client.clearWatchedKeys()
-				client.clearQueuedCmds()
-				continue
-			}
-
-			if cmd.Com == "DISCARD" {
-				var result resp.RESPType
-				if client.inTransaction {
-					result = resp.SimpleString("OK")
-				} else {
-					result = resp.SimpleError("ERR DISCARD without MULTI")
-				}
-				response := resp.Encode(result)
-				(*client.Conn).Write(response)
-				client.inTransaction = false
-				client.clearWatchedKeys()
-				client.clearQueuedCmds()
-				continue
-			}
-
-			if client.inTransaction {
-				client.queuedCmds.Push(cmd)
-				response := resp.Encode(resp.SimpleString("QUEUED"))
-				(*client.Conn).Write(response)
-				continue
-			}
-
-			result := command.ExecuteCommand(cmd, s)
 			response := resp.Encode(result)
 
 			(*client.Conn).Write(response)
