@@ -107,9 +107,6 @@ func (s *Server) connectToMaster(masterAddr string) {
 
 	var connArray resp.Array = make(resp.Array, 0, 4)
 	connArray = append(connArray, resp.BulkString("PING"))
-	connArray = append(connArray, resp.BulkString("REPLCONF"))
-	connArray = append(connArray, resp.BulkString("REPLCONF"))
-	connArray = append(connArray, resp.BulkString("PSYNC"))
 	response := resp.Encode(connArray)
 	_, err = conn.Write(response)
 	if err != nil {
