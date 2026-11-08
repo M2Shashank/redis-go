@@ -31,6 +31,13 @@ func HandleConn(client *Client, s *store.Store) {
 			}
 			readBuffer = readBuffer[n:]
 
+			if cmd.Com == "WATCH" {
+				result := resp.SimpleString("OK")
+				response := resp.Encode(result)
+				(*client.Conn).Write(response)
+				continue
+			}
+
 			if cmd.Com == "MULTI" {
 				var result resp.RESPType
 				if client.inTransaction {

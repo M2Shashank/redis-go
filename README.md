@@ -38,7 +38,5 @@ Things to Restructure or Modify
 
 1. set with expiry has bugs. New set, invalidates earlier
 2. BLPOP connection channels need to be popped of the map if clients disconnects
-3. Error messages everywhere instead of bool . err.Error()
-4. Break down Command to general, list, stream etc
 5. Draw LLD 
-
+6. Validate the command before queueing - Transactions
