@@ -5,8 +5,8 @@ import (
 	"net"
 	"os"
 
-    "github.com/codecrafters-io/redis-starter-go/internal/server"
-    "github.com/codecrafters-io/redis-starter-go/internal/store"
+	"github.com/codecrafters-io/redis-starter-go/internal/server"
+	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
 func main() {
@@ -24,6 +24,8 @@ func main() {
 		if err != nil {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
+		} else {
+			fmt.Println("Accepted connection from ", conn.RemoteAddr())
 		}
 
 		go server.HandleConn(conn, dataStore)

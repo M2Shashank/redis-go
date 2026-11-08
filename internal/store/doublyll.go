@@ -64,6 +64,24 @@ func (l *DoublyLL[T]) PopFront() (T, error) {
 	return value, nil
 }
 
+func (l *DoublyLL[T]) PopBack() (T, error) {
+	if l.Tail == nil {
+		var zero T
+		return zero, errors.New("ERR Linked List is empty")
+	}
+
+	value := l.Tail.Value
+	l.Tail = l.Tail.Prev
+	if l.Tail == nil {
+		l.Head = nil
+	} else {
+		l.Tail.Next = nil
+	}
+	l.Length--
+
+	return value, nil
+}
+
 func (l *DoublyLL[T]) Front() (T, error) {
 	if l.Head == nil {
 		var zero T
