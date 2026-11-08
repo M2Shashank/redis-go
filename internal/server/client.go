@@ -37,6 +37,10 @@ func (c *Client) clearWatchedKeys() {
 	c.watchedKeys = make(map[string]int64)
 }
 
+func (c *Client) clearQueuedCmds() {
+	c.queuedCmds.Clear()
+}
+
 func (c *Client) isValidTransaction(s *store.Store) bool {
 	for key, version := range c.watchedKeys {
 		currentVersion := s.GetKeyVersion(key)

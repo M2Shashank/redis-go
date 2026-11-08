@@ -90,21 +90,22 @@ func HandleConn(client *Client, s *store.Store) {
 				(*client.Conn).Write(response)
 				client.inTransaction = false
 				client.clearWatchedKeys()
-				client.queuedCmds.Clear()
+				client.clearQueuedCmds()
 				continue
 			}
 
 			if cmd.Com == "DISCARD" {
 				var result resp.RESPType
 				if client.inTransaction {
-					client.queuedCmds.Clear()
-					client.inTransaction = false
 					result = resp.SimpleString("OK")
 				} else {
 					result = resp.SimpleError("ERR DISCARD without MULTI")
 				}
 				response := resp.Encode(result)
 				(*client.Conn).Write(response)
+				client.inTransaction = false
+				client.clearWatchedKeys()
+				client.clearQueuedCmds()
 				continue
 			}
 
