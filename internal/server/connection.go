@@ -36,7 +36,9 @@ func HandleConn(client *Client, s *store.Store) {
 				if client.inTransaction {
 					result = resp.SimpleError("ERR WATCH inside MULTI is not allowed")
 				} else {
-					client.setWatchKey(cmd.Args[0], s)
+					for _, key := range cmd.Args {
+						client.setWatchKey(key, s)
+					}
 					result = resp.SimpleString("OK")
 				}
 				response := resp.Encode(result)
