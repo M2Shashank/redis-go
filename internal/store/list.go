@@ -3,10 +3,12 @@ package store
 import (
 	"errors"
 	"time"
+
+	"github.com/codecrafters-io/redis-starter-go/internal/collections"
 )
 
 type List struct {
-	Entries *DoublyLL[string]
+	Entries *collections.DoublyLL[string]
 	Waiters []chan string
 }
 
@@ -14,7 +16,7 @@ func (s *Store) createListObject() *RedisObject {
 	obj := &RedisObject{
 		Type: ListType,
 		Value: &List{
-			Entries: &DoublyLL[string]{},
+			Entries: &collections.DoublyLL[string]{},
 			Waiters: []chan string{},
 		},
 	}

@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/codecrafters-io/redis-starter-go/internal/collections"
 )
 
 type StreamEntry struct {
@@ -18,7 +20,7 @@ type StreamEntry struct {
 // data[key] => &RedisObject{ StreamType, &Stream{ Entries: &DoublyLL[StreamEntry]{} }}
 type Stream struct {
 	Key     string
-	Entries *DoublyLL[*StreamEntry]
+	Entries *collections.DoublyLL[*StreamEntry]
 
 	// list of channels waiting for new entries in this stream. BXREAD
 	// Why list of channels ? more than 1 client can be waiting for new entries in the same stream
@@ -40,7 +42,7 @@ func (s *Store) createStreamObject(key string) *RedisObject {
 		Type: StreamType,
 		Value: &Stream{
 			Key:     key,
-			Entries: &DoublyLL[*StreamEntry]{},
+			Entries: &collections.DoublyLL[*StreamEntry]{},
 			Notify: []chan struct {
 				key   string
 				field *StreamEntry
@@ -231,7 +233,7 @@ func (s *Store) XReadStreams(keys []string, mst []int64, seq []int64) ([]*ModStr
 		if mst[i] == -1 && seq[i] == -1 {
 			continue
 		}
-		
+
 		entries, err := s.XRange(keys[i], mst[i], seq[i], -1, -1)
 		if err != nil {
 			return nil, false

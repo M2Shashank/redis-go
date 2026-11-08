@@ -7,8 +7,6 @@ import (
 type Store struct {
 	data      map[string]*RedisObject
 	dataMutex sync.RWMutex
-
-	
 }
 
 func NewStore() *Store {
@@ -16,13 +14,6 @@ func NewStore() *Store {
 		data:    make(map[string]*RedisObject),
 	}
 }
-
-
-
-
-
-
-
 
 func (s *Store) TypeOf(key string) string {
 	s.dataMutex.RLock()

@@ -1,0 +1,23 @@
+package server
+
+import (
+	"net"
+
+	"github.com/codecrafters-io/redis-starter-go/internal/collections"
+	"github.com/codecrafters-io/redis-starter-go/internal/resp"
+)
+
+type Client struct {
+	Conn *net.Conn
+
+	QueuedCmds *collections.Queue[*resp.Command]
+	inTransaction bool
+}
+
+func NewClient(conn *net.Conn) *Client {
+	return &Client{
+		Conn: conn,
+		QueuedCmds: collections.NewQueue[*resp.Command](),
+		inTransaction: false,
+	}
+}

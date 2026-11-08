@@ -2,23 +2,19 @@ package server
 
 import (
 	"fmt"
-	"net"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/command"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
-func HandleConn(conn net.Conn, s *store.Store) {
-	defer conn.Close()
+func HandleConn(client *Client, s *store.Store) {
+	defer (*client.Conn).Close()
 	var buff []byte = make([]byte, 1024)
 	var readBuffer []byte
 
-	var queuedCommands *store.Queue[*resp.Command] = store.NewQueue[*resp.Command]()
-	var inQueued bool = false
-
 	for {
-		n, err := conn.Read(buff)
+		n, err := (*client.Conn).Read(buff)
 		if err != nil {
 			fmt.Println("Error reading from connection: ", err.Error())
 			break
@@ -35,34 +31,49 @@ func HandleConn(conn net.Conn, s *store.Store) {
 			}
 			readBuffer = readBuffer[n:]
 
-			if cmd.Com == "EXEC" && inQueued {
-				var results resp.Array = make([]resp.RESPType, 0, queuedCommands.Size())
-				for !queuedCommands.Empty() {
-					c := queuedCommands.Pop()
-					result := command.ExecuteCommand(c, s)
-					results = append(results, result)
+			if cmd.Com == "MULTI" {
+				var result resp.RESPType
+				if client.inTransaction {
+					result = resp.SimpleError("ERR MULTI calls can not be nested")
+				} else {
+					result = resp.SimpleString("OK")
+					client.inTransaction = true
 				}
-				response := resp.Encode(results)
-				conn.Write(response)
-				inQueued = false
+				response := resp.Encode(result)
+				(*client.Conn).Write(response)
 				continue
 			}
 
-			if cmd.Com != "EXEC" && inQueued {
-				queuedCommands.Push(cmd)
+			if cmd.Com == "EXEC" {
+				var response []byte
+				if client.inTransaction {
+					var results resp.Array = make([]resp.RESPType, 0, client.QueuedCmds.Size())
+					for !client.QueuedCmds.Empty() {
+						c := client.QueuedCmds.Pop()
+						result := command.ExecuteCommand(c, s)
+						results = append(results, result)
+					}
+					response = resp.Encode(results)
+					client.inTransaction = false
+				} else {
+					result := resp.SimpleError("ERR EXEC without MULTI")
+					response = resp.Encode(result)
+				}
+				(*client.Conn).Write(response)
+				continue
+			}
+
+			if client.inTransaction {
+				client.QueuedCmds.Push(cmd)
 				response := resp.Encode(resp.SimpleString("QUEUED"))
-				conn.Write(response)
+				(*client.Conn).Write(response)
 				continue
 			}
 
 			result := command.ExecuteCommand(cmd, s)
 			response := resp.Encode(result)
 
-			conn.Write(response)
-
-			if cmd.Com == "MULTI" {
-				inQueued = true
-			}
+			(*client.Conn).Write(response)
 		}
 	}
 }

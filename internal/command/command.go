@@ -10,7 +10,7 @@ var SimpleOK resp.RESPType = resp.SimpleString("OK")
 func ExecuteCommand(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	switch cmd.Com {
 
-	case "PING", "ECHO", "TYPE", "MULTI", "EXEC":
+	case "PING", "ECHO", "TYPE":
 		return generalHandler(cmd, dataStore)
 
 	case "SET", "GET", "INCR":

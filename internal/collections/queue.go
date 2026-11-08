@@ -1,7 +1,4 @@
-package store
-
-import (
-)
+package collections
 
 type Queue[T any] struct {
 	Entries *DoublyLL[T]

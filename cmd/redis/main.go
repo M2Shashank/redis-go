@@ -28,6 +28,7 @@ func main() {
 			fmt.Println("Accepted connection from ", conn.RemoteAddr())
 		}
 
-		go server.HandleConn(conn, dataStore)
+		client := server.NewClient(&conn)
+		go server.HandleConn(client, dataStore)
 	}
 }
