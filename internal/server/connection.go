@@ -22,8 +22,6 @@ func HandleConn(conn net.Conn, s *store.Store) {
 		if err != nil {
 			fmt.Println("Error reading from connection: ", err.Error())
 			break
-		} else {
-			fmt.Println("Read ", n, " bytes from connection")
 		}
 
 		readBuffer = append(readBuffer, buff[:n]...)
@@ -38,9 +36,6 @@ func HandleConn(conn net.Conn, s *store.Store) {
 			readBuffer = readBuffer[n:]
 
 			if cmd.Com == "EXEC" {
-				if !inQueued {
-					continue
-				}
 				var results resp.Array = make([]resp.RESPType, 0, queuedCommands.Size())
 				for !queuedCommands.Empty() {
 					c := queuedCommands.Pop()
@@ -53,7 +48,7 @@ func HandleConn(conn net.Conn, s *store.Store) {
 				continue
 			}
 
-			if inQueued {
+			if cmd.Com != "EXEC" && inQueued {
 				queuedCommands.Push(cmd)
 				response := resp.Encode(resp.SimpleString("QUEUED"))
 				conn.Write(response)
