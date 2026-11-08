@@ -2,13 +2,13 @@ package collections
 
 type Queue[T any] struct {
 	Entries *DoublyLL[T]
-	size int
+	size    int
 }
 
 func NewQueue[T any]() *Queue[T] {
-	return &Queue[T] {
+	return &Queue[T]{
 		Entries: &DoublyLL[T]{},
-		size: 0,
+		size:    0,
 	}
 }
 
@@ -31,7 +31,12 @@ func (q *Queue[T]) Pop() T {
 		return zero
 	}
 	q.size--
-	
-	val ,_ := q.Entries.PopFront()
+
+	val, _ := q.Entries.PopFront()
 	return val
+}
+
+func (q *Queue[T]) Clear() {
+	q.Entries = &DoublyLL[T]{}
+	q.size = 0
 }

@@ -63,6 +63,20 @@ func HandleConn(client *Client, s *store.Store) {
 				continue
 			}
 
+			if cmd.Com == "DISCARD" {
+				var result resp.RESPType
+				if client.inTransaction {
+					client.QueuedCmds.Clear()
+					client.inTransaction = false
+					result = resp.SimpleString("OK")
+				} else {
+					result = resp.SimpleError("ERR DISCARD without MULTI")
+				}
+				response := resp.Encode(result)
+				(*client.Conn).Write(response)
+				continue
+			}
+
 			if client.inTransaction {
 				client.QueuedCmds.Push(cmd)
 				response := resp.Encode(resp.SimpleString("QUEUED"))
