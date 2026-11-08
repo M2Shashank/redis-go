@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -9,10 +10,20 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
-func main() {
-	dataStore := store.NewStore()
+var port int
+var dataStore *store.Store
 
-	lis, err := net.Listen("tcp", "0.0.0.0:6379")
+func init() {
+	dataStore = store.NewStore()
+	flag.IntVar(&port, "port", 6379, "Port to listen on")
+}
+
+func main() {
+	flag.Parse()
+
+	var addr string = fmt.Sprintf("0.0.0.0:%d", port)
+
+	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
