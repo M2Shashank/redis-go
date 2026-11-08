@@ -11,8 +11,20 @@ type Store struct {
 
 func NewStore() *Store {
 	return &Store{
-		data:    make(map[string]*RedisObject),
+		data: make(map[string]*RedisObject),
 	}
+}
+
+func (s *Store) GetKeyVersion(key string) int64 {
+	s.dataMutex.RLock()
+	defer s.dataMutex.RUnlock()
+
+	obj, exists := s.data[key]
+	if !exists {
+		return 0
+	}
+
+	return obj.version
 }
 
 func (s *Store) TypeOf(key string) string {

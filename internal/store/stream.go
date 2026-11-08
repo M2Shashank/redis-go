@@ -191,6 +191,7 @@ func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) 
 
 	stream.Entries.PushBack(entry)
 	stream.notifyNewEntry(entry)
+	redisObj.version++
 	return entry.ID, nil
 }
 

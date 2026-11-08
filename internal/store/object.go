@@ -11,6 +11,6 @@ const StreamType ObjectType = 2
 
 type RedisObject struct {
 	Type  ObjectType
+	version int64
 	Value any
 }
-

@@ -60,6 +60,7 @@ func (s *Store) RPush(key string, values []string) (int, error) {
 	for _, value := range values {
 		list.Entries.PushBack(value)
 	}
+	listObj.version++
 
 	list.serveWaiters()
 	return result, nil
@@ -84,6 +85,7 @@ func (s *Store) LPush(key string, values []string) (int, error) {
 	for _, value := range values {
 		list.Entries.PushFront(value)
 	}
+	listObj.version++
 
 	list.serveWaiters()
 	return result, nil
@@ -155,6 +157,8 @@ func (s *Store) LPop(key string) (string, error) {
 
 	list := obj.Value.(*List)
 	value, err := list.Entries.PopFront()
+	obj.version++
+
 	return value, err
 }
 
@@ -180,6 +184,7 @@ func (s *Store) LPopN(key string, count int) ([]string, error) {
 		}
 		result = append(result, value)
 	}
+	obj.version++
 
 	return result, nil
 }
@@ -201,6 +206,7 @@ func (s *Store) BLPop(key string, timeout float64) (string, error) {
 	list := obj.Value.(*List)
 	if list.Entries.Length > 0 {
 		value, _ := list.Entries.PopFront()
+		obj.version++
 		s.dataMutex.Unlock()
 		return value, nil
 	}
@@ -211,15 +217,23 @@ func (s *Store) BLPop(key string, timeout float64) (string, error) {
 
 	s.dataMutex.Unlock()
 
+	incrVersion := func() {
+		s.dataMutex.Lock()
+		obj.version++
+		s.dataMutex.Unlock()
+	}
+
 	if timeoutDuration <= 0 {
 		// No timeout, block indefinitely
 		value := <-ch
+		incrVersion()
 		return value, nil
 	}
 
 	select {
 	// block and wait for incoming value
 	case value := <-ch:
+		incrVersion()
 		return value, nil
 
 	// timeout after specified duration. Remove from waiting list

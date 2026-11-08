@@ -27,7 +27,7 @@ func (s *Store) Set(key string, value string) error {
 
 	obj, exists := s.data[key]
 	if !exists {
-		s.data[key] = &RedisObject{StringType, value}
+		s.data[key] = &RedisObject{StringType, 1, value}
 		return nil
 	}
 
@@ -36,6 +36,7 @@ func (s *Store) Set(key string, value string) error {
 	}
 
 	s.data[key].Value = value
+	s.data[key].version++
 	return nil
 }
 
@@ -52,7 +53,7 @@ func (s *Store) Incr(key string) (int, error) {
 
 	obj, exists := s.data[key]
 	if !exists {
-		s.data[key] = &RedisObject{StringType, "1"}
+		s.data[key] = &RedisObject{StringType, 1, "1"}
 		return 1, nil
 	}
 	if obj.Type != StringType {
@@ -65,6 +66,7 @@ func (s *Store) Incr(key string) (int, error) {
 	}
 
 	s.data[key].Value = strconv.Itoa(value + 1)
+	s.data[key].version++
 	return value + 1, nil
 }
 

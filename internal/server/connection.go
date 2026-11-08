@@ -36,7 +36,7 @@ func HandleConn(client *Client, s *store.Store) {
 				if client.inTransaction {
 					result = resp.SimpleError("ERR WATCH inside MULTI is not allowed")
 				} else {
-					client.watchedKeys[cmd.Args[0]] = true
+					client.setWatchKey(cmd.Args[0], s)
 					result = resp.SimpleString("OK")
 				}
 				response := resp.Encode(result)
@@ -58,28 +58,36 @@ func HandleConn(client *Client, s *store.Store) {
 			}
 
 			if cmd.Com == "EXEC" {
-				var response []byte
-				if client.inTransaction {
-					var results resp.Array = make([]resp.RESPType, 0, client.QueuedCmds.Size())
-					for !client.QueuedCmds.Empty() {
-						c := client.QueuedCmds.Pop()
+				if !client.inTransaction {
+					result := resp.SimpleError("ERR EXEC without MULTI")
+					response := resp.Encode(result)
+					(*client.Conn).Write(response)
+					continue
+				}
+
+				if !client.isValidTransaction(s) {
+					response := resp.Encode(resp.Array(nil))
+					(*client.Conn).Write(response)
+					client.inTransaction = false
+				} else {
+					var results resp.Array = make([]resp.RESPType, 0, client.queuedCmds.Size())
+					for !client.queuedCmds.Empty() {
+						c := client.queuedCmds.Pop()
 						result := command.ExecuteCommand(c, s)
 						results = append(results, result)
 					}
-					response = resp.Encode(results)
+					response := resp.Encode(results)
 					client.inTransaction = false
-				} else {
-					result := resp.SimpleError("ERR EXEC without MULTI")
-					response = resp.Encode(result)
+					(*client.Conn).Write(response)
 				}
-				(*client.Conn).Write(response)
+				client.clearWatchedKeys()
 				continue
 			}
 
 			if cmd.Com == "DISCARD" {
 				var result resp.RESPType
 				if client.inTransaction {
-					client.QueuedCmds.Clear()
+					client.queuedCmds.Clear()
 					client.inTransaction = false
 					result = resp.SimpleString("OK")
 				} else {
@@ -91,7 +99,7 @@ func HandleConn(client *Client, s *store.Store) {
 			}
 
 			if client.inTransaction {
-				client.QueuedCmds.Push(cmd)
+				client.queuedCmds.Push(cmd)
 				response := resp.Encode(resp.SimpleString("QUEUED"))
 				(*client.Conn).Write(response)
 				continue
