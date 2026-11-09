@@ -39,6 +39,8 @@ func HandleConn(client *Client, s *store.Store) {
 				result = client.TransactionHandler(cmd, s)
 			case "INFO":
 				result = InfoHandler(cmd, client.Server)
+			case "REPLCONF":
+				result = resp.SimpleString("OK")
 			default:
 				if client.inTransaction {
 					client.queuedCmds.Push(cmd)

@@ -105,13 +105,52 @@ func (s *Server) connectToMaster(masterAddr string) {
 		return
 	}
 
-	var connArray resp.Array = make(resp.Array, 0, 4)
-	connArray = append(connArray, resp.BulkString("PING"))
-	response := resp.Encode(connArray)
-	_, err = conn.Write(response)
-	if err != nil {
-		fmt.Println("Error sending commands to master: ", err.Error())
+	var pingCmd = &resp.Command{Com: "PING", Args: []string{}}
+	responseStr := s.writeCommandToMaster(pingCmd, conn)
+	if responseStr != "+PONG" {
+		fmt.Println("Error: Expected PONG from master")
 		return
 	}
-	fmt.Printf("Connected to master at %s", masterAddr)
+	fmt.Println(responseStr)
+
+	var replconfCmd = &resp.Command{Com: "REPLCONF", Args: []string{"listening-port", fmt.Sprintf("%d", s.Port)}}
+	responseStr = s.writeCommandToMaster(replconfCmd, conn)
+	if responseStr != "+OK" {
+		fmt.Println("Error: Expected OK from master for REPLCONF")
+		return
+	}
+	fmt.Println(responseStr)
+
+	var replconfCmd2 = &resp.Command{Com: "REPLCONF", Args: []string{"capa", "psync2"}}
+	responseStr = s.writeCommandToMaster(replconfCmd2, conn)
+	if responseStr != "+OK" {
+		fmt.Println("Error: Expected OK from master for REPLCONF capa psync2")
+		return
+	}
+	fmt.Println(responseStr)
+
+	fmt.Printf("Connected to master at %s and sent PING and REPLCONF commands\n", masterAddr)
+}
+
+func (s *Server) writeCommandToMaster(cmd *resp.Command, masterConn net.Conn) string {
+	cmdArray := resp.Array{resp.BulkString(cmd.Com)}
+	for _, arg := range cmd.Args {
+		cmdArray = append(cmdArray, resp.BulkString(arg))
+	}
+	response := resp.Encode(cmdArray)
+
+	_, err := masterConn.Write(response)
+	if err != nil {
+		fmt.Println("Error sending commands to master: ", err.Error())
+		return ""
+	}
+	fmt.Printf("Sent command to master: %s\n", cmd.Com)
+
+	var buf []byte = make([]byte, 1024)
+	n, err1 := masterConn.Read(buf)
+	if err1 != nil {
+		fmt.Println("Error reading from master: ", err1.Error())
+		return ""
+	}
+	return string(buf[:n])
 }
