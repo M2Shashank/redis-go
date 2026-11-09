@@ -33,7 +33,7 @@ func NewServer(port int, addr string, dataStore *store.Store) *Server {
 
 //************* Main Function. Accepts Client Connections ****************
 
-func Start(port int, addr string, dataStore *store.Store, masterAddrString string) {
+func Start(port int, addr string, dataStore *store.Store, replicaof string) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
@@ -42,15 +42,17 @@ func Start(port int, addr string, dataStore *store.Store, masterAddrString strin
 	server := NewServer(port, addr, dataStore)
 	fmt.Printf("Server listening on, %v\n", lis.Addr())
 
-	server.infoReplication(masterAddrString)
+	server.infoReplication(replicaof)
 
-	masterAddr := strings.ReplaceAll(masterAddrString, " ", ":")
-	_, err1 := server.connectToMaster(masterAddr)
-	if err1 != nil {
-		fmt.Println("Error connecting to master: ", err1.Error())
-		os.Exit(1)
+	if replicaof != "" {
+		masterAddr := strings.ReplaceAll(replicaof, " ", ":")
+		_, err1 := server.connectToMaster(masterAddr)
+		if err1 != nil {
+			fmt.Println("Error connecting to master: ", err1.Error())
+			os.Exit(1)
+		}
+		fmt.Printf("Connected to master at %s and completed the Handshake\n", masterAddr)
 	}
-	fmt.Printf("Connected to master at %s and completed the Handshake\n", masterAddr)
 
 	for {
 		conn, err := lis.Accept()
@@ -95,5 +97,3 @@ func (s *Server) addClient(client *Client) {
 }
 
 // ----------------------------------------------------
-
-

@@ -10,19 +10,19 @@ import (
 
 var dataStore *store.Store
 var port int
-var masterAddr string
+var replicaof string
 
 func init() {
 	dataStore = store.NewStore()
 	flag.IntVar(&port, "port", 6379, "Port to listen on")
 	flag.IntVar(&port, "p", 6379, "Port to listen on (shorthand)")
 
-	flag.StringVar(&masterAddr, "replicaof", "", "Replicate from the specified master")
+	flag.StringVar(&replicaof, "replicaof", "", "Replicate from the specified master")
 }
 
 func main() {
 	flag.Parse()
 
 	var addr string = fmt.Sprintf("0.0.0.0:%d", port)
-	server.Start(port, addr, dataStore, masterAddr)
+	server.Start(port, addr, dataStore, replicaof)
 }
