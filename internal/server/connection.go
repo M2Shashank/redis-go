@@ -35,6 +35,8 @@ func HandleConn(client *Client, s *store.Store) {
 			switch cmd.Com {
 
 			case "REPLCONF":
+				// this used by slave to connect to master
+				// cant be used by master to get ack, as handleConn function is not called for masterConn. (only client connections)
 				result = client.Server.ReplconfHandler(cmd)
 			case "PSYNC": // Master/Slave replication Commands
 				result = client.Server.MasterServerCommandHandler(cmd)
@@ -89,7 +91,15 @@ func HandleMasterConn(client *Client, s *store.Store) {
 			}
 			readBuffer = readBuffer[n:]
 
-			_, _ = command.ExecuteCommand(cmd, s)
+			switch cmd.Com {
+			case "REPLCONF":
+				// used by master to get ack from slave
+				result := client.Server.ReplconfHandler(cmd)
+				response := resp.Encode(result)
+				(client.Conn).Write(response)
+			default:
+				_, _ = command.ExecuteCommand(cmd, s)
+			}
 		}
 	}
 }
