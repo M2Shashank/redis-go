@@ -107,7 +107,7 @@ func (s *Server) connectToMaster(masterAddr string) {
 
 	var pingCmd = &resp.Command{Com: "PING", Args: []string{}}
 	responseStr := s.writeCommandToMaster(pingCmd, conn)
-	if responseStr != "+PONG" {
+	if responseStr != "+PONG\r\n" {
 		fmt.Println("Error: Expected PONG from master")
 		return
 	}
@@ -115,7 +115,7 @@ func (s *Server) connectToMaster(masterAddr string) {
 
 	var replconfCmd = &resp.Command{Com: "REPLCONF", Args: []string{"listening-port", fmt.Sprintf("%d", s.Port)}}
 	responseStr = s.writeCommandToMaster(replconfCmd, conn)
-	if responseStr != "+OK" {
+	if responseStr != "+OK\r\n" {
 		fmt.Println("Error: Expected OK from master for REPLCONF")
 		return
 	}
@@ -123,7 +123,7 @@ func (s *Server) connectToMaster(masterAddr string) {
 
 	var replconfCmd2 = &resp.Command{Com: "REPLCONF", Args: []string{"capa", "psync2"}}
 	responseStr = s.writeCommandToMaster(replconfCmd2, conn)
-	if responseStr != "+OK" {
+	if responseStr != "+OK\r\n" {
 		fmt.Println("Error: Expected OK from master for REPLCONF capa psync2")
 		return
 	}
