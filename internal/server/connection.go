@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"encoding/hex"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/command"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
@@ -49,8 +50,14 @@ func HandleConn(client *Client, s *store.Store) {
 			}
 
 			response := resp.Encode(result)
-
 			(client.Conn).Write(response)
+
+			if cmd.Com == "PSYNC" {
+				rdbFile, _ := hex.DecodeString(emptyRDBFileHex)
+				str := fmt.Sprintf("$%d\r\n", len(rdbFile))
+				(client.Conn).Write([]byte(str))
+				(client.Conn).Write(rdbFile)
+			}
 		}
 	}
 }

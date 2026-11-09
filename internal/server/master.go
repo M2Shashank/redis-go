@@ -1,11 +1,13 @@
 package server
 
 import (
-	"strings"
 	"fmt"
+	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
+
+var emptyRDBFileHex string = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2"
 
 func (s *Server) addMasterReplicationInfo() {
 	s.replicationInfo["role"] = "master"
@@ -36,6 +38,6 @@ func (s *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 		return InfoHandler(cmd, s)
 	default:
 		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
-		
+
 	}
 }
