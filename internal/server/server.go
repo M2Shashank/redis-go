@@ -129,6 +129,14 @@ func (s *Server) connectToMaster(masterAddr string) {
 	}
 	fmt.Println(responseStr)
 
+	var psyncCmd = &resp.Command{Com: "PSYNC", Args: []string{"?", "-1"}}
+	responseStr = s.writeCommandToMaster(psyncCmd, conn)
+	if responseStr == "" {
+		fmt.Println("Error: Expected response from master for PSYNC")
+		return
+	}
+	fmt.Println(responseStr)
+
 	fmt.Printf("Connected to master at %s and sent PING and REPLCONF commands\n", masterAddr)
 }
 
