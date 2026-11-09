@@ -137,7 +137,7 @@ func (s *Server) connectToMaster(masterAddr string) {
 	}
 	fmt.Println(responseStr)
 
-	fmt.Printf("Connected to master at %s and sent PING and REPLCONF commands\n", masterAddr)
+	fmt.Printf("Connected to master at %s and completed the Handshake\n", masterAddr)
 }
 
 func (s *Server) writeCommandToMaster(cmd *resp.Command, masterConn net.Conn) string {

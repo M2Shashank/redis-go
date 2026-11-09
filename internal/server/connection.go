@@ -17,8 +17,8 @@ func HandleConn(client *Client, s *store.Store) {
 	var readBuffer []byte
 	var server *Server = client.Server
 
-	var masterId string = server.replicationInfo["master_id"]
-	var masterOffset string = server.replicationInfo["master_offset"]
+	var masterId string = server.replicationInfo["master_replid"]
+	var masterOffset string = server.replicationInfo["master_repl_offset"]
 
 	for {
 		n, err := (client.Conn).Read(buff)
