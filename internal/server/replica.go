@@ -30,8 +30,8 @@ func (s *Server) connectToMaster(masterAddr string) (net.Conn, error) {
 	if err1 != nil {
 		return nil, err1
 	}
-	if responseStr != "+PONG\r\n" {
-		return nil, fmt.Errorf("ERR expected PONG from master for PING, got: %s", responseStr)
+	if responseStr != "+OK\r\n" {
+		return nil, fmt.Errorf("ERR expected OK from master for REPLCONF, got: %s", responseStr)
 	}
 	fmt.Println(responseStr)
 
@@ -40,8 +40,8 @@ func (s *Server) connectToMaster(masterAddr string) (net.Conn, error) {
 	if err1 != nil {
 		return nil, err1
 	}
-	if responseStr != "+PONG\r\n" {
-		return nil, fmt.Errorf("ERR expected PONG from master for PING, got: %s", responseStr)
+	if responseStr != "+OK\r\n" {
+		return nil, fmt.Errorf("ERR expected OK from master for REPLCONF, got: %s", responseStr)
 	}
 	fmt.Println(responseStr)
 
