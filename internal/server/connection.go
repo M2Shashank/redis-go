@@ -34,7 +34,9 @@ func HandleConn(client *Client, s *store.Store) {
 			var writeCommand bool
 			switch cmd.Com {
 
-			case "REPLCONF", "PSYNC": // Master/Slave replication Commands
+			case "REPLCONF":
+				result = client.Server.ReplconfHandler(cmd)
+			case "PSYNC": // Master/Slave replication Commands
 				result = client.Server.MasterServerCommandHandler(cmd)
 			case "INFO": // Server Related Commands
 				result = client.Server.ServerCommandHandler(cmd)

@@ -25,10 +25,12 @@ func InfoHandler(cmd *resp.Command, server *Server) resp.RESPType {
 }
 
 func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
+	if s.Role != "master" {
+		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
+	}
+
 	switch cmd.Com {
 
-	case "REPLCONF":
-		return resp.SimpleString("OK")
 	case "PSYNC":
 		masterId := s.replicationInfo["master_replid"]
 		masterOffset := s.replicationInfo["master_repl_offset"]

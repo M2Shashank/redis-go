@@ -115,3 +115,25 @@ func (s *Server) infoReplication(masterAddr string) {
 }
 
 // ----------------------------------------------------
+
+func (s *Server) ReplconfHandler(cmd *resp.Command) resp.RESPType {
+	if len(cmd.Args) < 2 {
+		return resp.SimpleError("ERR wrong number of arguments for 'REPLCONF' command")
+	}
+
+	switch cmd.Args[0] {
+
+	case "GETACK":
+		if s.Role == "master" {
+			response := resp.Array([]resp.RESPType{
+				resp.BulkString("REPLCONF"),
+				resp.BulkString("ACK"),
+				resp.BulkString("0"),
+			})
+			return response
+		}
+
+	}
+
+	return resp.SimpleString("OK")
+}
