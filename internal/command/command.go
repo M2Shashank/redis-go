@@ -7,23 +7,30 @@ import (
 
 var SimpleOK resp.RESPType = resp.SimpleString("OK")
 
-func ExecuteCommand(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
+func ExecuteCommand(cmd *resp.Command, dataStore *store.Store) (resp.RESPType, bool) {
+	var result resp.RESPType
+	var writeCommand bool = false
 	switch cmd.Com {
 
 	case "PING", "ECHO", "TYPE", "INFO":
-		return generalHandler(cmd, dataStore)
+		result = generalHandler(cmd, dataStore)
 
 	case "SET", "GET", "INCR":
-		return stringHandler(cmd, dataStore)
+		if cmd.Com != "GET" { writeCommand = true }
+		result = stringHandler(cmd, dataStore)
 
 	case "RPUSH", "LPUSH", "LRANGE", "LLEN", "LPOP", "BLPOP":
-		return listHandler(cmd, dataStore)
+		if cmd.Com != "LRANGE" && cmd.Com != "LLEN" { writeCommand = true }
+		result = listHandler(cmd, dataStore)
 
 	case "XADD", "XRANGE", "XREAD":
-		return streamHandler(cmd, dataStore)
+		if cmd.Com == "XADD" { writeCommand = true }
+		result = streamHandler(cmd, dataStore)
 
 	default:
-		return resp.SimpleError("ERR Invalid or Unsupported Command")
+		result = resp.SimpleError("ERR Invalid or Unsupported Command")
 
 	}
+
+	return result, writeCommand
 }

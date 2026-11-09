@@ -17,6 +17,18 @@ func BulkArrayToRESP(values []string) resp.RESPType {
 	return respArray
 }
 
+func CommandToRESP(cmd *resp.Command) resp.RESPType {
+	if cmd == nil {
+		return resp.Array(nil)
+	}
+	var respArray resp.Array = resp.Array{}
+	respArray = append(respArray, resp.BulkString(cmd.Com))
+	for _, arg := range cmd.Args {
+		respArray = append(respArray, resp.BulkString(arg))
+	}
+	return respArray
+}
+
 func StreamEntriesToRESP(entries []*store.StreamEntry) resp.RESPType {
 	if len(entries) == 0 {
 		return resp.Array(nil)

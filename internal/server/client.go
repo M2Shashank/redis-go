@@ -53,6 +53,17 @@ func (c *Client) isValidTransaction(s *store.Store) bool {
 	return true
 }
 
+// Dont use for now
+// func (client *Client) Write(response []byte) {
+// 	// dont write to slave clients by default. Only write to slave clients if server is master.
+// 	// Slaves Only write for handshake and replication commands. (PSYNC, REPLCONF)
+// 	if client.Server.Role == "master" {
+// 		client.Server.ReplicasMutex.RLock()
+// 		defer client.Server.ReplicasMutex.RUnlock()
+// 		client.Conn.Write(response)
+// 	}
+// }
+
 // used in transaction.go
 func (c *Client) clearTransactionState() {
 	c.inTransaction = false

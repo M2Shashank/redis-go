@@ -7,17 +7,22 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
 type Server struct {
 	Port      int
 	Addr      string
+	Role      string
 	DataStore *store.Store
 
-	Connections     map[*Client]struct{} // remote address to client mapping
-	ServerMutex     sync.RWMutex         // to protect the Connections map
-	replicationInfo map[string]string    // to store replication info like master host, id, etc.
+	//replication
+	Master        *Client              // used by slaves
+	Replicas      map[*Client]struct{} // used by master to track connected slaves
+	ReplicasMutex sync.RWMutex
+
+	replicationInfo map[string]string // to store replication info like master host, id, etc.
 }
 
 func NewServer(port int, addr string, dataStore *store.Store) *Server {
@@ -25,13 +30,15 @@ func NewServer(port int, addr string, dataStore *store.Store) *Server {
 		Port:            port,
 		Addr:            addr,
 		DataStore:       dataStore,
-		Connections:     make(map[*Client]struct{}),
 		replicationInfo: make(map[string]string),
-		ServerMutex:     sync.RWMutex{},
+		Replicas:        make(map[*Client]struct{}),
+		ReplicasMutex:   sync.RWMutex{},
+		Role:            "master", // default role is master. If replicaof specified, it will be changed to slave in server.Start()
 	}
 }
 
 //************* Main Function. Accepts Client Connections ****************
+// implemented for Master and Slave.
 
 func Start(port int, addr string, dataStore *store.Store, replicaof string) {
 	lis, err := net.Listen("tcp", addr)
@@ -40,20 +47,36 @@ func Start(port int, addr string, dataStore *store.Store, replicaof string) {
 		os.Exit(1)
 	}
 	server := NewServer(port, addr, dataStore)
+	if replicaof != "" {
+		server.Role = "slave"
+	}
+
 	fmt.Printf("Server listening on, %v\n", lis.Addr())
 
 	server.infoReplication(replicaof)
 
-	if replicaof != "" {
+	if server.Role == "slave" {
+		// Connect to master and perform handshake
 		masterAddr := strings.ReplaceAll(replicaof, " ", ":")
-		_, err1 := server.connectToMaster(masterAddr)
-		if err1 != nil {
-			fmt.Println("Error connecting to master: ", err1.Error())
+		masterClient, err := server.connectToMaster(masterAddr)
+		if err != nil {
+			fmt.Println("Error connecting to master: ", err.Error())
+			os.Exit(1)
+		}
+		server.Master = masterClient // MasterConnection is set for a slave
+		err = server.InitiateHandshake()
+		if err != nil {
+			fmt.Println("Error initiating handshake: ", err.Error())
 			os.Exit(1)
 		}
 		fmt.Printf("Connected to master at %s and completed the Handshake\n", masterAddr)
+
+		// Start handling commands from master to replicate the data.
+		// This is a blocking call and will run in the background for the lifetime of the slave server.
+		go HandleMasterConn(server.Master, dataStore)
 	}
 
+	// slave server will also accept connections from clients.
 	for {
 		conn, err := lis.Accept()
 		if err != nil {
@@ -64,9 +87,17 @@ func Start(port int, addr string, dataStore *store.Store, replicaof string) {
 		}
 
 		client := NewClient(conn, server)
-		server.addClient(client)
 
 		go HandleConn(client, dataStore)
+	}
+}
+
+func (s *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
+	switch cmd.Com {
+	case "INFO":
+		return InfoHandler(cmd, s)
+	default:
+		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
 	}
 }
 
@@ -75,25 +106,12 @@ func Start(port int, addr string, dataStore *store.Store, replicaof string) {
 // ------ Server Methods to manage Server info ------
 
 func (s *Server) infoReplication(masterAddr string) {
-	if masterAddr == "" {
+	s.replicationInfo["role"] = s.Role
+	if s.Role == "master" {
 		s.addMasterReplicationInfo()
 	} else {
 		s.addSlaveReplicationInfo(masterAddr)
 	}
-}
-
-// -------- Server Methods to manage clients ---------
-
-func (s *Server) removeClient(client *Client) {
-	s.ServerMutex.Lock()
-	defer s.ServerMutex.Unlock()
-	delete(s.Connections, client)
-}
-
-func (s *Server) addClient(client *Client) {
-	s.ServerMutex.Lock()
-	defer s.ServerMutex.Unlock()
-	s.Connections[client] = struct{}{}
 }
 
 // ----------------------------------------------------
