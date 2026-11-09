@@ -124,7 +124,7 @@ func (s *Server) ReplconfHandler(cmd *resp.Command) resp.RESPType {
 	switch cmd.Args[0] {
 
 	case "GETACK":
-		if s.Role == "master" {
+		if s.Role == "slave" {
 			response := resp.Array([]resp.RESPType{
 				resp.BulkString("REPLCONF"),
 				resp.BulkString("ACK"),
