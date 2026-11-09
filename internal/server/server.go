@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
@@ -34,7 +33,7 @@ func NewServer(port int, addr string, dataStore *store.Store) *Server {
 
 //************* Main Function. Accepts Client Connections ****************
 
-func Start(port int, addr string, dataStore *store.Store, masterAddr string) {
+func Start(port int, addr string, dataStore *store.Store, masterAddrString string) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
@@ -43,7 +42,15 @@ func Start(port int, addr string, dataStore *store.Store, masterAddr string) {
 	server := NewServer(port, addr, dataStore)
 	fmt.Printf("Server listening on, %v\n", lis.Addr())
 
-	server.infoReplication(masterAddr)
+	server.infoReplication(masterAddrString)
+
+	masterAddr := strings.ReplaceAll(masterAddrString, " ", ":")
+	_, err1 := server.connectToMaster(masterAddr)
+	if err1 != nil {
+		fmt.Println("Error connecting to master: ", err1.Error())
+		os.Exit(1)
+	}
+	fmt.Printf("Connected to master at %s and completed the Handshake\n", masterAddr)
 
 	for {
 		conn, err := lis.Accept()
@@ -67,19 +74,9 @@ func Start(port int, addr string, dataStore *store.Store, masterAddr string) {
 
 func (s *Server) infoReplication(masterAddr string) {
 	if masterAddr == "" {
-		s.replicationInfo["role"] = "master"
-		s.replicationInfo["master_replid"] = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"
-		s.replicationInfo["master_repl_offset"] = "0"
+		s.addMasterReplicationInfo()
 	} else {
-		parts := strings.Split(masterAddr, " ")
-		masterhost := fmt.Sprintf("%s:%s", parts[0], parts[1])
-
-		s.replicationInfo["role"] = "slave"
-		s.replicationInfo["master_host"] = parts[0]
-		s.replicationInfo["master_port"] = parts[1]
-
-		// connect to master and send ping, Replconf, psync commands to initiate replication
-		s.connectToMaster(masterhost)
+		s.addSlaveReplicationInfo(masterAddr)
 	}
 }
 
@@ -98,67 +95,5 @@ func (s *Server) addClient(client *Client) {
 }
 
 // ----------------------------------------------------
-func (s *Server) connectToMaster(masterAddr string) {
-	conn, err := net.Dial("tcp", masterAddr)
-	if err != nil {
-		fmt.Println("Error connecting to master: ", err.Error())
-		return
-	}
 
-	var pingCmd = &resp.Command{Com: "PING", Args: []string{}}
-	responseStr := s.writeCommandToMaster(pingCmd, conn)
-	if responseStr != "+PONG\r\n" {
-		fmt.Println("Error: Expected PONG from master")
-		return
-	}
-	fmt.Println(responseStr)
 
-	var replconfCmd = &resp.Command{Com: "REPLCONF", Args: []string{"listening-port", fmt.Sprintf("%d", s.Port)}}
-	responseStr = s.writeCommandToMaster(replconfCmd, conn)
-	if responseStr != "+OK\r\n" {
-		fmt.Println("Error: Expected OK from master for REPLCONF")
-		return
-	}
-	fmt.Println(responseStr)
-
-	var replconfCmd2 = &resp.Command{Com: "REPLCONF", Args: []string{"capa", "psync2"}}
-	responseStr = s.writeCommandToMaster(replconfCmd2, conn)
-	if responseStr != "+OK\r\n" {
-		fmt.Println("Error: Expected OK from master for REPLCONF capa psync2")
-		return
-	}
-	fmt.Println(responseStr)
-
-	var psyncCmd = &resp.Command{Com: "PSYNC", Args: []string{"?", "-1"}}
-	responseStr = s.writeCommandToMaster(psyncCmd, conn)
-	if responseStr == "" {
-		fmt.Println("Error: Expected response from master for PSYNC")
-		return
-	}
-	fmt.Println(responseStr)
-
-	fmt.Printf("Connected to master at %s and completed the Handshake\n", masterAddr)
-}
-
-func (s *Server) writeCommandToMaster(cmd *resp.Command, masterConn net.Conn) string {
-	cmdArray := resp.Array{resp.BulkString(cmd.Com)}
-	for _, arg := range cmd.Args {
-		cmdArray = append(cmdArray, resp.BulkString(arg))
-	}
-	response := resp.Encode(cmdArray)
-
-	_, err := masterConn.Write(response)
-	if err != nil {
-		fmt.Println("Error sending commands to master: ", err.Error())
-		return ""
-	}
-	fmt.Printf("Sent command to master: %s\n", cmd.Com)
-
-	var buf []byte = make([]byte, 1024)
-	n, err1 := masterConn.Read(buf)
-	if err1 != nil {
-		fmt.Println("Error reading from master: ", err1.Error())
-		return ""
-	}
-	return string(buf[:n])
-}

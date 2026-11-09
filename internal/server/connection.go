@@ -15,10 +15,6 @@ func HandleConn(client *Client, s *store.Store) {
 	}()
 	var buff []byte = make([]byte, 1024)
 	var readBuffer []byte
-	var server *Server = client.Server
-
-	var masterId string = server.replicationInfo["master_replid"]
-	var masterOffset string = server.replicationInfo["master_repl_offset"]
 
 	for {
 		n, err := (client.Conn).Read(buff)
@@ -41,13 +37,8 @@ func HandleConn(client *Client, s *store.Store) {
 			switch cmd.Com {
 			case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
 				result = client.TransactionHandler(cmd, s)
-			case "INFO":
-				result = InfoHandler(cmd, client.Server)
-			case "REPLCONF":
-				result = resp.SimpleString("OK")
-			case "PSYNC":
-				str := fmt.Sprintf("FULLRESYNC %s %s", masterId, masterOffset)
-				result = resp.SimpleString(str)
+			case "INFO", "REPLCONF", "PSYNC":
+				result = client.Server.ServerCommandHandler(cmd)
 			default:
 				if client.inTransaction {
 					client.queuedCmds.Push(cmd)
