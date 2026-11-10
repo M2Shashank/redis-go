@@ -23,6 +23,7 @@ type Server struct {
 	ReplicasMutex sync.RWMutex
 
 	replicationInfo map[string]string // to store replication info like master host, id, etc.
+	// replOffsetState int64 // to track the replication offset for slave
 }
 
 func NewServer(port int, addr string, dataStore *store.Store) *Server {
@@ -128,7 +129,7 @@ func (s *Server) ReplconfHandler(cmd *resp.Command) resp.RESPType {
 			response := resp.Array([]resp.RESPType{
 				resp.BulkString("REPLCONF"),
 				resp.BulkString("ACK"),
-				resp.BulkString("0"),
+				resp.BulkString(s.replicationInfo["master_repl_offset"]),
 			})
 			return response
 		}

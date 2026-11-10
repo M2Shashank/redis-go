@@ -9,6 +9,7 @@ import (
 
 	"github.com/codecrafters-io/redis-starter-go/internal/command"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
+	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
 func (s *Server) connectToMaster(masterAddr string) (*Client, error) {
@@ -134,4 +135,48 @@ func (s *Server) addSlaveReplicationInfo(masterAddr string) {
 
 	s.replicationInfo["master_host"] = parts[0]
 	s.replicationInfo["master_port"] = parts[1]
+}
+
+func (s *Server) increamentOffset(n int) {
+	curOffsetState := s.replicationInfo["master_repl_offset"]
+	offset, _ := strconv.ParseInt(curOffsetState, 10, 64)
+	offset += int64(n)
+	s.replicationInfo["master_repl_offset"] = strconv.FormatInt(offset, 10)
+}
+
+// used by slave to handle commands from master
+func HandleMasterConn(client *Client, s *store.Store) {
+	defer (client.Conn).Close()
+	var buff []byte = make([]byte, 1024)
+	var readBuffer []byte
+
+	for {
+		n, err := (client.Conn).Read(buff)
+		if err != nil {
+			fmt.Println("Error reading from connection: ", err.Error())
+			break
+		}
+		fmt.Printf("Read %d bytes from connection: %s\n", n, string(buff[:n]))
+		readBuffer = append(readBuffer, buff[:n]...)
+
+		for {
+			n, cmd := resp.ParseRESPCommand(readBuffer)
+			if cmd == nil || n == 0 {
+				break
+			}
+			readBuffer = readBuffer[n:]
+
+			switch cmd.Com {
+			case "REPLCONF":
+				// used by master to get ack from slave
+				result := client.Server.ReplconfHandler(cmd)
+				response := resp.Encode(result)
+				(client.Conn).Write(response)
+			default:
+				_, _ = command.ExecuteCommand(cmd, s)
+			}
+
+			client.Server.increamentOffset(n)
+		}
+	}
 }
