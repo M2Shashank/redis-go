@@ -12,6 +12,10 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
+type SlaveInfo struct {
+	expectedOffset int64
+}
+
 type Server struct {
 	Port      int
 	Addr      string
@@ -20,7 +24,7 @@ type Server struct {
 
 	//replication
 	Master        *Client              // used by slaves
-	Replicas      map[*Client]struct{} // used by master to track connected slaves
+	Replicas      map[*Client]*SlaveInfo // used by master to track connected slaves
 	ReplicasMutex sync.RWMutex
 
 	Replication ReplicationInfo
@@ -32,7 +36,7 @@ func NewServer(port int, addr string, dataStore *store.Store) *Server {
 		Addr:          addr,
 		DataStore:     dataStore,
 		Replication:   ReplicationInfo{},
-		Replicas:      make(map[*Client]struct{}),
+		Replicas:      make(map[*Client]*SlaveInfo),
 		ReplicasMutex: sync.RWMutex{},
 		Role:          "master", // default role is master. If replicaof specified, it will be changed to slave in server.Start()
 	}
