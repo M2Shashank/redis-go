@@ -85,8 +85,10 @@ func (s *Server) InitiateHandshake() error {
 }
 
 // used by slave to handle commands from master
-// Only write commands are sent from master to slave, so no response is sent back to master for these commands.
 // Commands from clients to slave are handled in HandleConn function, which takes care of sending responses back
+// reading for commands from master and executing them on slave. No response is sent back to master for these commands.
+// reading and writing commands to master from slave -> handleMasterConn function
+// reading and writing commands to slave from master -> handleConn function
 func HandleMasterConn(client *Client, s *store.Store) {
 	defer (client.Conn).Close()
 	var buff []byte = make([]byte, 1024)
@@ -109,9 +111,9 @@ func HandleMasterConn(client *Client, s *store.Store) {
 			readBuffer = readBuffer[n:]
 
 			switch cmd.Com {
-			case "REPLCONF":
-				// used by master to get ack from slave
-				result := client.Server.ReplconfHandler(cmd)
+			case "REPLCONF": // getack
+				// scmd sent by master to get ack from slave
+				result := client.Server.ReplconfHandler(cmd, nil)
 				response := resp.Encode(result)
 				(client.Conn).Write(response)
 			default:

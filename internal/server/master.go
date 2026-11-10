@@ -36,42 +36,45 @@ func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
 			return resp.SimpleError("ERR invalid arguments for 'WAIT' command")
 		}
 
-		var noOfSlaves int
-		var ch chan bool = make(chan bool, len(s.Replicas))
-
-		ReplConfGetackCmd := resp.Command{
-			Com:  "REPLCONF",
-			Args: []string{"GETACK", "*"},
-		}
-		for slave := range s.Replicas {
-			go func() {
-				if s.IsSlaveInSync(&ReplConfGetackCmd, slave) {
-					ch <- true
-				}
-			}()
-		}
-
-		timer := time.NewTimer(time.Duration(timeLimit) * time.Millisecond)
-	forloop:
-		for {
-			select {
-			case _ = <-ch:
-				noOfSlaves++
-				if noOfSlaves >= numSlaves {
-					break forloop
-				}
-
-			case <-timer.C:
-				fmt.Println("Timeout reached while waiting for slaves to acknowledge")
-				break forloop
-			}
-		}
-		result = resp.Integer(noOfSlaves)
+		result = s.HandleWait(numSlaves, timeLimit)
 
 	default:
 		result = resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
 
 	}
+	return result
+}
+
+func (s *Server) HandleWait(numSlaves int, timeLimit int) resp.RESPType {
+	ReplConfGetackCmd := &resp.Command{
+		Com:  "REPLCONF",
+		Args: []string{"GETACK", "*"},
+	}
+	temp := command.CommandToRESP(ReplConfGetackCmd)
+	rawCommand := resp.Encode(temp)
+	s.WriteCommandToSlaves(rawCommand)
+
+	var numValidAcks int = 0
+
+	timer := time.NewTimer(time.Duration(timeLimit) * time.Millisecond)
+forloop:
+	for {
+		select {
+		case msg := <-s.AckChannel:
+			var expectedOffset int64 = s.Replicas[msg.client].expectedOffset
+			var receivedOffset int64 = msg.offset
+			if receivedOffset == expectedOffset {
+				numValidAcks++
+			}
+			if numValidAcks >= numSlaves {
+				break forloop
+			}
+
+		case <-timer.C:
+			break forloop
+		}
+	}
+	result := resp.Integer(numValidAcks)
 	return result
 }
 
@@ -100,43 +103,10 @@ func (s *Server) WriteCommandToSlaves(rawCommand []byte) {
 		n, err := slave.Conn.Write(rawCommand)
 		if err != nil {
 			fmt.Println("Error writing to slave: ", err.Error())
+			continue
 		}
 		fmt.Println("Notified slave of write: ", string(rawCommand))
 
 		slaveStruct.expectedOffset += int64(n)
 	}
-}
-
-func (s *Server) IsSlaveInSync(getackCmd *resp.Command, slave *Client) bool {
-	temp := command.CommandToRESP(getackCmd)
-	rawCommand := resp.Encode(temp)
-
-	s.ReplicasMutex.RLock()
-	defer s.ReplicasMutex.RUnlock()
-
-	fmt.Printf("Sending GETACK to replica %s: %s\n", slave.Conn.RemoteAddr(), string(rawCommand))
-	writeBytes, err := slave.Conn.Write(rawCommand)
-	if err != nil {
-		fmt.Println("Error writing GETACK to slave: ", err.Error())
-	}
-
-	var responseBuffer []byte
-	// read response from slave
-	_, err = slave.Conn.Read(responseBuffer)
-	if err != nil {
-		fmt.Println("Error reading response from slave: ", err.Error())
-	}
-
-	// responseBuffer is a Array of bulkString of the format "+REPLCONF ACK <offset>\r\n"
-	_, recievedCmd := resp.ParseRESPCommand(responseBuffer)
-	recievedOffset, _ := strconv.ParseInt(recievedCmd.Args[1], 10, 64)
-	fmt.Printf("Received ACK from replica %s: %s\n", slave.Conn.RemoteAddr(), recievedOffset)
-
-	s.Replicas[slave].expectedOffset += int64(writeBytes)
-
-	if recievedOffset == s.Replicas[slave].expectedOffset {
-		fmt.Printf("Replica %s is in sync with master\n", slave.Conn.RemoteAddr())
-		return true
-	}
-	return false
 }

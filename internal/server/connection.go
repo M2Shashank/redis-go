@@ -38,7 +38,11 @@ func HandleConn(client *Client, s *store.Store) {
 			if client.Server.Role == "master" && result.Type() != "SimpleError" && cmd.Com != "PING" && cmd.Com != "REPLCONF" && cmd.Com != "PSYNC" && cmd.Com != "INFO" {
 				client.Server.WriteCommandToSlaves(rawCommand)
 			}
-			
+
+			if cmd.Com == "REPLCONF" && cmd.Args[0] == "ACK" {
+				continue
+			}
+
 			response := resp.Encode(result)
 			(client.Conn).Write(response)
 
