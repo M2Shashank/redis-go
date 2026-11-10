@@ -29,7 +29,7 @@ func (s *Server) InitiateHandshake() error {
 		Args: []string{},
 	}
 	var pingCmdIdealResponse = "+PONG\r\n"
-	err := s.SendAndCheckCommandToMaster(pingCmd, pingCmdIdealResponse)
+	_, err := s.SendAndCheckCommandToMaster(pingCmd, pingCmdIdealResponse)
 	if err != nil {
 		return err
 	}
@@ -39,7 +39,7 @@ func (s *Server) InitiateHandshake() error {
 		Args: []string{"listening-port", fmt.Sprintf("%d", s.Port)},
 	}
 	var replconfCmdIdealResponse = "+OK\r\n"
-	err = s.SendAndCheckCommandToMaster(replconfCmd, replconfCmdIdealResponse)
+	_, err = s.SendAndCheckCommandToMaster(replconfCmd, replconfCmdIdealResponse)
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func (s *Server) InitiateHandshake() error {
 		Com:  "REPLCONF",
 		Args: []string{"capa", "psync2"},
 	}
-	err = s.SendAndCheckCommandToMaster(replconfCmd2, replconfCmdIdealResponse)
+	_, err = s.SendAndCheckCommandToMaster(replconfCmd2, replconfCmdIdealResponse)
 	if err != nil {
 		return err
 	}
@@ -57,10 +57,14 @@ func (s *Server) InitiateHandshake() error {
 		Com:  "PSYNC",
 		Args: []string{"?", "-1"},
 	}
-	err = s.SendAndCheckCommandToMaster(psyncCmd, "+FULLRESYNC")
+	resp, err := s.SendAndCheckCommandToMaster(psyncCmd, "+FULLRESYNC")
 	if err != nil {
 		return err
 	}
+
+	fullResyncFields := strings.Fields(resp)
+	s.replicationInfo["ack_repl_offset"] = fullResyncFields[2]
+	s.replicationInfo["master_replid"] = fullResyncFields[1]
 
 	rdbHeader, err := s.readResponseFromMaster(s.Master.Conn)
 	if err != nil {
@@ -80,21 +84,21 @@ func (s *Server) InitiateHandshake() error {
 	return nil
 }
 
-func (s *Server) SendAndCheckCommandToMaster(cmd *resp.Command, expectedResponse string) error {
+func (s *Server) SendAndCheckCommandToMaster(cmd *resp.Command, expectedResponse string) (string, error) {
 	err := s.writeCommandToMaster(cmd, s.Master.Conn)
 	if err != nil {
-		return err
+		return "", err
 	}
 	responseStr, err := s.readResponseFromMaster(s.Master.Conn)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if !strings.Contains(responseStr, expectedResponse) {
-		return fmt.Errorf("ERR expected %s from master, got: %s", expectedResponse, responseStr)
+		return "", fmt.Errorf("ERR expected %s from master, got: %s", expectedResponse, responseStr)
 	}
 
 	fmt.Println(responseStr)
-	return nil
+	return responseStr, nil
 }
 
 func (s *Server) writeCommandToMaster(cmd *resp.Command, masterConn net.Conn) error {
@@ -138,10 +142,10 @@ func (s *Server) addSlaveReplicationInfo(masterAddr string) {
 }
 
 func (s *Server) increamentOffset(n int) {
-	curOffsetState := s.replicationInfo["master_repl_offset"]
+	curOffsetState := s.replicationInfo["ack_repl_offset"]
 	offset, _ := strconv.ParseInt(curOffsetState, 10, 64)
 	offset += int64(n)
-	s.replicationInfo["master_repl_offset"] = strconv.FormatInt(offset, 10)
+	s.replicationInfo["ack_repl_offset"] = strconv.FormatInt(offset, 10)
 }
 
 // used by slave to handle commands from master

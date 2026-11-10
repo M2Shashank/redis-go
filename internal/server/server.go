@@ -129,7 +129,7 @@ func (s *Server) ReplconfHandler(cmd *resp.Command) resp.RESPType {
 			response := resp.Array([]resp.RESPType{
 				resp.BulkString("REPLCONF"),
 				resp.BulkString("ACK"),
-				resp.BulkString(s.replicationInfo["master_repl_offset"]),
+				resp.BulkString(s.replicationInfo["ack_repl_offset"]),
 			})
 			return response
 		}
