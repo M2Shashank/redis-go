@@ -10,6 +10,19 @@ type Command struct {
 	Args []string
 }
 
+func (cmd *Command) IsWriteCommand() bool {
+	switch cmd.Com {
+	case "SET", "INCR", "XADD":
+		return true
+	case "RPUSH", "LPUSH", "LPOP", "BLPOP":
+		return true
+	case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
+		return true
+	default:
+		return false
+	}
+}
+
 // parseRESPCommand parses an array of bulk strings into a Command struct
 // It returns the number of bytes consumed and a pointer to the Command struct.
 // Assumes a request is an array of bulk strings (i.e. starts with '*')

@@ -22,16 +22,17 @@ type Server struct {
 	Replicas      map[*Client]struct{} // used by master to track connected slaves
 	ReplicasMutex sync.RWMutex
 
-	replicationInfo map[string]string // to store replication info like master host, id, etc.
-	// replOffsetState int64 // to track the replication offset for slave
+	Replication ReplicationInfo 
 }
+
+
 
 func NewServer(port int, addr string, dataStore *store.Store) *Server {
 	return &Server{
 		Port:            port,
 		Addr:            addr,
 		DataStore:       dataStore,
-		replicationInfo: make(map[string]string),
+		Replication:     ReplicationInfo{},
 		Replicas:        make(map[*Client]struct{}),
 		ReplicasMutex:   sync.RWMutex{},
 		Role:            "master", // default role is master. If replicaof specified, it will be changed to slave in server.Start()
@@ -48,15 +49,14 @@ func Start(port int, addr string, dataStore *store.Store, replicaof string) {
 		os.Exit(1)
 	}
 	server := NewServer(port, addr, dataStore)
-	if replicaof != "" {
-		server.Role = "slave"
-	}
 
 	fmt.Printf("Server listening on, %v\n", lis.Addr())
 
-	server.infoReplication(replicaof)
+	server.SetBasicReplicationInfo(replicaof)
 
-	if server.Role == "slave" {
+	if replicaof != "" {
+		server.Role = "slave"
+
 		// Connect to master and perform handshake
 		masterAddr := strings.ReplaceAll(replicaof, " ", ":")
 		masterClient, err := server.connectToMaster(masterAddr)
@@ -78,6 +78,7 @@ func Start(port int, addr string, dataStore *store.Store, replicaof string) {
 	}
 
 	// slave server will also accept connections from clients.
+	// Run for both master and slave servers to accept connections from clients.
 	for {
 		conn, err := lis.Accept()
 		if err != nil {
@@ -96,7 +97,7 @@ func Start(port int, addr string, dataStore *store.Store, replicaof string) {
 func (s *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 	switch cmd.Com {
 	case "INFO":
-		return InfoHandler(cmd, s)
+		return InfoHandler(s)
 	default:
 		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
 	}
@@ -104,37 +105,39 @@ func (s *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 
 // ******************************************************************
 
-// ------ Server Methods to manage Server info ------
-
-func (s *Server) infoReplication(masterAddr string) {
-	s.replicationInfo["role"] = s.Role
-	if s.Role == "master" {
-		s.addMasterReplicationInfo()
-	} else {
-		s.addSlaveReplicationInfo(masterAddr)
-	}
-}
-
-// ----------------------------------------------------
-
 func (s *Server) ReplconfHandler(cmd *resp.Command) resp.RESPType {
 	if len(cmd.Args) < 2 {
 		return resp.SimpleError("ERR wrong number of arguments for 'REPLCONF' command")
 	}
 
+	var result resp.RESPType = resp.SimpleString("OK")
+
 	switch cmd.Args[0] {
 
 	case "GETACK":
 		if s.Role == "slave" {
-			response := resp.Array([]resp.RESPType{
+			result = resp.Array([]resp.RESPType{
 				resp.BulkString("REPLCONF"),
 				resp.BulkString("ACK"),
-				resp.BulkString(s.replicationInfo["ack_repl_offset"]),
+				resp.BulkString(s.Replication.master_repl_offset),
 			})
-			return response
 		}
+
+	default:
+		result = resp.SimpleString("OK")
 
 	}
 
-	return resp.SimpleString("OK")
+	return result
+}
+
+func InfoHandler(server *Server) resp.RESPType {
+	var replInfo map[string]string = server.Replication.Info()
+
+	info := strings.Builder{}
+	fmt.Fprintf(&info, "# Replication\r\n")
+	for key, value := range replInfo {
+		fmt.Fprintf(&info, "%s:%s\r\n", key, value)
+	}
+	return resp.BulkString(info.String())
 }

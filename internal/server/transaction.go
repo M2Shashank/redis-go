@@ -64,7 +64,7 @@ func (c *Client) HandleExec(s *store.Store) resp.RESPType {
 	var results resp.Array = make([]resp.RESPType, 0, c.queuedCmds.Size())
 	for !c.queuedCmds.Empty() {
 		topCmd := c.queuedCmds.Pop()
-		result, _ := command.ExecuteCommand(topCmd, s)
+		result := command.ExecuteCommand(topCmd, s)
 		results = append(results, result)
 	}
 	c.clearTransactionState()

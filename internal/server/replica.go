@@ -63,8 +63,8 @@ func (s *Server) InitiateHandshake() error {
 	}
 
 	fullResyncFields := strings.Fields(resp)
-	s.replicationInfo["ack_repl_offset"] = fullResyncFields[2]
-	s.replicationInfo["master_replid"] = fullResyncFields[1]
+	s.Replication.master_repl_offset, _ = strconv.ParseInt(fullResyncFields[2], 10, 64)
+	s.Replication.master_replid = fullResyncFields[1]
 
 	rdbHeader, err := s.readResponseFromMaster(s.Master.Conn)
 	if err != nil {
@@ -83,6 +83,56 @@ func (s *Server) InitiateHandshake() error {
 
 	return nil
 }
+
+// used by slave to handle commands from master
+// Only write commands are sent from master to slave, so no response is sent back to master for these commands.
+// Commands from clients to slave are handled in HandleConn function, which takes care of sending responses back
+func HandleMasterConn(client *Client, s *store.Store) {
+	defer (client.Conn).Close()
+	var buff []byte = make([]byte, 1024)
+	var readBuffer []byte
+
+	for {
+		n, err := (client.Conn).Read(buff)
+		if err != nil {
+			fmt.Println("Error reading from connection: ", err.Error())
+			break
+		}
+		fmt.Printf("Read %d bytes from connection: %s\n", n, string(buff[:n]))
+		readBuffer = append(readBuffer, buff[:n]...)
+
+		for {
+			n, cmd := resp.ParseRESPCommand(readBuffer)
+			if cmd == nil || n == 0 {
+				break
+			}
+			readBuffer = readBuffer[n:]
+
+			switch cmd.Com {
+			case "REPLCONF":
+				// used by master to get ack from slave
+				result := client.Server.ReplconfHandler(cmd)
+				response := resp.Encode(result)
+				(client.Conn).Write(response)
+			default:
+				if cmd.IsWriteCommand() {
+					_ = command.ExecuteCommand(cmd, s)
+				}
+			}
+
+			client.Server.increamentOffset(n)
+		}
+	}
+}
+
+
+// ------------------- helper methods for replication 
+
+func (s *Server) increamentOffset(n int) {
+	s.Replication.master_repl_offset += int64(n)
+}
+
+// -------------------------- Handshake helpers 
 
 func (s *Server) SendAndCheckCommandToMaster(cmd *resp.Command, expectedResponse string) (string, error) {
 	err := s.writeCommandToMaster(cmd, s.Master.Conn)
@@ -134,53 +184,4 @@ func (s *Server) readResponseFromMaster(masterConn net.Conn) (string, error) {
 	}
 }
 
-func (s *Server) addSlaveReplicationInfo(masterAddr string) {
-	parts := strings.Split(masterAddr, " ")
-
-	s.replicationInfo["master_host"] = parts[0]
-	s.replicationInfo["master_port"] = parts[1]
-}
-
-func (s *Server) increamentOffset(n int) {
-	curOffsetState := s.replicationInfo["ack_repl_offset"]
-	offset, _ := strconv.ParseInt(curOffsetState, 10, 64)
-	offset += int64(n)
-	s.replicationInfo["ack_repl_offset"] = strconv.FormatInt(offset, 10)
-}
-
-// used by slave to handle commands from master
-func HandleMasterConn(client *Client, s *store.Store) {
-	defer (client.Conn).Close()
-	var buff []byte = make([]byte, 1024)
-	var readBuffer []byte
-
-	for {
-		n, err := (client.Conn).Read(buff)
-		if err != nil {
-			fmt.Println("Error reading from connection: ", err.Error())
-			break
-		}
-		fmt.Printf("Read %d bytes from connection: %s\n", n, string(buff[:n]))
-		readBuffer = append(readBuffer, buff[:n]...)
-
-		for {
-			n, cmd := resp.ParseRESPCommand(readBuffer)
-			if cmd == nil || n == 0 {
-				break
-			}
-			readBuffer = readBuffer[n:]
-
-			switch cmd.Com {
-			case "REPLCONF":
-				// used by master to get ack from slave
-				result := client.Server.ReplconfHandler(cmd)
-				response := resp.Encode(result)
-				(client.Conn).Write(response)
-			default:
-				_, _ = command.ExecuteCommand(cmd, s)
-			}
-
-			client.Server.increamentOffset(n)
-		}
-	}
-}
+// ------------------------------------------
