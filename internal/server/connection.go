@@ -41,13 +41,13 @@ func HandleConn(client *Client, s *store.Store) {
 				// this used by slave to connect to master
 				// cant be used by master to get ack, as handleConn function is not called for masterConn. (only client connections)
 				result = client.Server.ReplconfHandler(cmd)
-			case "PSYNC": 
+			case "PSYNC":
 				// Master/Slave replication Commands
 				result = client.Server.MasterServerCommandHandler(cmd)
-			case "INFO": 
+			case "INFO":
 				// Server Related Commands
 				result = client.Server.ServerCommandHandler(cmd)
-			case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD": 
+			case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
 				// Transaction Commands handled by Client
 				result = client.TransactionHandler(cmd, s)
 			default: // All other commands handled by (Command package)
@@ -61,7 +61,7 @@ func HandleConn(client *Client, s *store.Store) {
 			}
 
 			if client.Server.Role == "master" && result.Type() != "SimpleError" {
-				if cmd.Com != "REPLCONF" && cmd.Com != "PSYNC" && cmd.Com != "INFO" {
+				if cmd.Com != "PING" && cmd.Com != "REPLCONF" && cmd.Com != "PSYNC" && cmd.Com != "INFO" {
 					client.Server.NotifySlavesOfWrite(rawCommand)
 				}
 			}
