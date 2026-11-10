@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -22,20 +23,18 @@ type Server struct {
 	Replicas      map[*Client]struct{} // used by master to track connected slaves
 	ReplicasMutex sync.RWMutex
 
-	Replication ReplicationInfo 
+	Replication ReplicationInfo
 }
-
-
 
 func NewServer(port int, addr string, dataStore *store.Store) *Server {
 	return &Server{
-		Port:            port,
-		Addr:            addr,
-		DataStore:       dataStore,
-		Replication:     ReplicationInfo{},
-		Replicas:        make(map[*Client]struct{}),
-		ReplicasMutex:   sync.RWMutex{},
-		Role:            "master", // default role is master. If replicaof specified, it will be changed to slave in server.Start()
+		Port:          port,
+		Addr:          addr,
+		DataStore:     dataStore,
+		Replication:   ReplicationInfo{},
+		Replicas:      make(map[*Client]struct{}),
+		ReplicasMutex: sync.RWMutex{},
+		Role:          "master", // default role is master. If replicaof specified, it will be changed to slave in server.Start()
 	}
 }
 
@@ -48,10 +47,9 @@ func Start(port int, addr string, dataStore *store.Store, replicaof string) {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
-	server := NewServer(port, addr, dataStore)
 
 	fmt.Printf("Server listening on, %v\n", lis.Addr())
-
+	server := NewServer(port, addr, dataStore)
 	server.SetBasicReplicationInfo(replicaof)
 
 	if replicaof != "" {
@@ -116,10 +114,11 @@ func (s *Server) ReplconfHandler(cmd *resp.Command) resp.RESPType {
 
 	case "GETACK":
 		if s.Role == "slave" {
+			var offset int64 = s.Replication.master_repl_offset
 			result = resp.Array([]resp.RESPType{
 				resp.BulkString("REPLCONF"),
 				resp.BulkString("ACK"),
-				resp.BulkString(s.Replication.master_repl_offset),
+				resp.BulkString(strconv.FormatInt(offset, 10)),
 			})
 		}
 

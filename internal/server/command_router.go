@@ -14,7 +14,7 @@ func routeCommand(client *Client, s *store.Store, cmd *resp.Command) resp.RESPTy
 
 	switch cmd.Com {
 
-	case "PSYNC":
+	case "PSYNC", "WAIT":
 		// Master/Slave replication Commands
 		result = client.Server.MasterServerCommandHandler(cmd)
 	case "REPLCONF":

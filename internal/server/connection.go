@@ -35,19 +35,18 @@ func HandleConn(client *Client, s *store.Store) {
 			var result resp.RESPType
 			result = routeCommand(client, s, cmd)
 
-			if client.Server.Role == "master" && result.Type() != "SimpleError" {
-				if cmd.Com != "PING" && cmd.Com != "REPLCONF" && cmd.Com != "PSYNC" && cmd.Com != "INFO" {
-					client.Server.NotifySlavesOfWrite(rawCommand)
-				}
+			if client.Server.Role == "master" && result.Type() != "SimpleError" && cmd.Com != "PING" && cmd.Com != "REPLCONF" && cmd.Com != "PSYNC" && cmd.Com != "INFO" {
+				client.Server.WriteCommandToSlaves(rawCommand)
 			}
+			
 			response := resp.Encode(result)
 			(client.Conn).Write(response)
 
 			// routeCommand for PSYNC acknowledges repl_id and offset. Now the RDB file is sent
 			if client.Server.Role == "master" && cmd.Com == "PSYNC" {
 				fmt.Printf("Sending RDB file to slave: %s\n", client.Conn.RemoteAddr())
-				client.Server.sendRDBFile(client)
-				// slave added in sendRDBFile function after sending RDB file to slave.
+				client.Server.SendRDBFile(client)
+				client.Server.AddSlave(client) // slave added in master's list
 				fmt.Println("Added slave: ", client.Conn.RemoteAddr())
 			}
 		}
