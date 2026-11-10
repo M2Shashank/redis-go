@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/command"
@@ -26,6 +25,7 @@ func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
 		masterOffset := s.Replication.master_repl_offset
 		str := fmt.Sprintf("FULLRESYNC %s %d", masterId, masterOffset)
 		result = resp.SimpleString(str)
+
 	case "WAIT":
 		if len(cmd.Args) != 2 {
 			return resp.SimpleError("ERR wrong number of arguments for 'WAIT' command")
@@ -67,6 +67,7 @@ func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
 			}
 		}
 		result = resp.Integer(noOfSlaves)
+
 	default:
 		result = resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
 
@@ -126,21 +127,16 @@ func (s *Server) IsSlaveInSync(getackCmd *resp.Command, slave *Client) bool {
 		fmt.Println("Error reading response from slave: ", err.Error())
 	}
 
-	// responseBuffer is a simplestring of the format "+REPLCONF ACK <offset>\r\n"
-	responseStr := string(responseBuffer)
-	recievedOffset := strings.Fields(responseStr)[2]
+	// responseBuffer is a Array of bulkString of the format "+REPLCONF ACK <offset>\r\n"
+	_, recievedCmd := resp.ParseRESPCommand(responseBuffer)
+	recievedOffset, _ := strconv.ParseInt(recievedCmd.Args[1], 10, 64)
 	fmt.Printf("Received ACK from replica %s: %s\n", slave.Conn.RemoteAddr(), recievedOffset)
-	offset, err := strconv.ParseInt(recievedOffset, 10, 64)
-	if err != nil {
-		fmt.Println("Error parsing offset: ", err.Error())
-	}
-
-	var result bool = false
-	if offset == s.Replicas[slave].expectedOffset {
-		fmt.Printf("Replica %s is in sync with master\n", slave.Conn.RemoteAddr())
-		result = true
-	}
 
 	s.Replicas[slave].expectedOffset += int64(writeBytes)
-	return result
+
+	if recievedOffset == s.Replicas[slave].expectedOffset {
+		fmt.Printf("Replica %s is in sync with master\n", slave.Conn.RemoteAddr())
+		return true
+	}
+	return false
 }
