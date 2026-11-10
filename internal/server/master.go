@@ -52,7 +52,7 @@ func (s *Server) HandleWait(numSlaves int, timeLimit int) resp.RESPType {
 	}
 	temp := command.CommandToRESP(ReplConfGetackCmd)
 	rawCommand := resp.Encode(temp)
-	s.WriteCommandToSlaves(rawCommand)
+	s.WriteCommandToSlaves(rawCommand, false)
 
 	var numValidAcks int = 0
 
@@ -94,7 +94,7 @@ func (s *Server) SendRDBFile(client *Client) {
 }
 
 // Synchronous for now
-func (s *Server) WriteCommandToSlaves(rawCommand []byte) {
+func (s *Server) WriteCommandToSlaves(rawCommand []byte, incrOffset bool) {
 	s.ReplicasMutex.RLock()
 	defer s.ReplicasMutex.RUnlock()
 
@@ -107,6 +107,8 @@ func (s *Server) WriteCommandToSlaves(rawCommand []byte) {
 		}
 		fmt.Println("Notified slave of write: ", string(rawCommand))
 
-		slaveStruct.expectedOffset += int64(n)
+		if incrOffset {
+			slaveStruct.expectedOffset += int64(n)
+		}
 	}
 }

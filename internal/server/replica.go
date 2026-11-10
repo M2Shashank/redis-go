@@ -119,10 +119,11 @@ func HandleMasterConn(client *Client, s *store.Store) {
 			default:
 				if cmd.IsWriteCommand() {
 					_ = command.ExecuteCommand(cmd, s)
+					client.Server.increamentOffset(n)
 				}
 			}
 
-			client.Server.increamentOffset(n)
+			// client.Server.increamentOffset(n)
 		}
 	}
 }
