@@ -27,8 +27,7 @@ func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
 			return resp.SimpleError("ERR wrong number of arguments for 'WAIT' command")
 		}
 
-		result = resp.Integer(0)
-		// For now, we are not implementing WAIT command fully. So returning 0 for now.
+		result = resp.Integer(len(s.Replicas))
 	default:
 		result = resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
 

@@ -41,7 +41,7 @@ func (r *ReplicationInfo) Info() map[string]string {
 	return info
 }
 
-// ___________________________________________________________________________
+// ______________________________________________________________
 
 func (s *Server) SetBasicReplicationInfo(masterAddr string) {
 	if masterAddr == "" {
