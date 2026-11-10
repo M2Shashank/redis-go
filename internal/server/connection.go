@@ -35,7 +35,7 @@ func HandleConn(client *Client, s *store.Store) {
 			var result resp.RESPType
 			result = routeCommand(client, s, cmd)
 
-			if client.Server.Role == "master" && result.Type() != "SimpleError" && cmd.Com != "PING" && cmd.Com != "REPLCONF" && cmd.Com != "PSYNC" && cmd.Com != "INFO" {
+			if client.Server.Role == "master" && result.Type() != "SimpleError" && cmd.Com != "PING" && cmd.Com != "REPLCONF" && cmd.Com != "PSYNC" && cmd.Com != "INFO" && cmd.Com != "WAIT" {
 				client.Server.WriteCommandToSlaves(rawCommand, true)
 			}
 
