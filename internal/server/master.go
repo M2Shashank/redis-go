@@ -46,6 +46,8 @@ func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
 }
 
 func (s *Server) HandleWait(numSlaves int, timeLimit int) resp.RESPType {
+	s.AckChannel = make(chan *ChannelItem, 10) // reset the channel to avoid old ACKs being counted
+
 	ReplConfGetackCmd := &resp.Command{
 		Com:  "REPLCONF",
 		Args: []string{"GETACK", "*"},
