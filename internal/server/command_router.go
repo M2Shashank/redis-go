@@ -21,7 +21,7 @@ func routeCommand(client *Client, s *store.Store, cmd *resp.Command) resp.RESPTy
 		// this used by slave to connect to master
 		// cant be used by master to get ack, as handleConn function is not called for masterConn. (only client connections)
 		result = client.Server.ReplconfHandler(cmd, client)
-	case "INFO":
+	case "INFO", "CONFIG":
 		// Server Related Commands
 		result = client.Server.ServerCommandHandler(cmd)
 	case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":

@@ -26,28 +26,32 @@ type Server struct {
 	Role      string
 	DataStore *store.Store
 
+	//? persistence related fields. Used by both
+	dir        string
+	dbfilename string
+
 	//replication
-	Master        *Client              // used by slaves
+	Master        *Client                // used by slaves
 	Replicas      map[*Client]*SlaveInfo // used by master to track connected slaves
 	ReplicasMutex sync.RWMutex
 
 	//! stores the client and the offset it sent
 	//! the offset its supposed to have is stored in the SlaveInfo struct
-	AckChannel chan *ChannelItem // used by master to receive ACKs from slaves. 
-	Replication ReplicationInfo
+	AckChannel       chan *ChannelItem // used by master to receive ACKs from slaves.
+	Replication      ReplicationInfo
 	hasPendingWrites bool // used by master to track if atleast one write command has been sent to slaves.
 }
 
 func NewServer(port int, addr string, dataStore *store.Store) *Server {
 	return &Server{
-		Port:          port,
-		Addr:          addr,
-		DataStore:     dataStore,
-		Replication:   ReplicationInfo{},
-		Replicas:      make(map[*Client]*SlaveInfo),
-		ReplicasMutex: sync.RWMutex{},
-		AckChannel:    make(chan *ChannelItem, 100),
-		Role:          "master", // default role is master. If replicaof specified, it will be changed to slave in server.Start()
+		Port:             port,
+		Addr:             addr,
+		DataStore:        dataStore,
+		Replication:      ReplicationInfo{},
+		Replicas:         make(map[*Client]*SlaveInfo),
+		ReplicasMutex:    sync.RWMutex{},
+		AckChannel:       make(chan *ChannelItem, 100),
+		Role:             "master", // default role is master. If replicaof specified, it will be changed to slave in server.Start()
 		hasPendingWrites: false,
 	}
 }
@@ -55,15 +59,19 @@ func NewServer(port int, addr string, dataStore *store.Store) *Server {
 //************* Main Function. Accepts Client Connections ****************
 // implemented for Master and Slave.
 
-func Start(port int, addr string, dataStore *store.Store, replicaof string) {
+func Start(port int, addr string, dataStore *store.Store, flags []string) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
 
+	replicaof, dir, dbfilename := flags[0], flags[1], flags[2]
+
 	fmt.Printf("Server listening on, %v\n", lis.Addr())
 	server := NewServer(port, addr, dataStore)
+	server.dir = dir
+	server.dbfilename = dbfilename
 	server.SetBasicReplicationInfo(replicaof)
 
 	if server.Role == "slave" {
@@ -108,6 +116,30 @@ func (s *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 	switch cmd.Com {
 	case "INFO":
 		return InfoHandler(s)
+	case "CONFIG":
+		if len(cmd.Args) != 2 {
+			return resp.SimpleError("ERR wrong number of arguments for 'CONFIG' command")
+		}
+
+		var typeOf string = cmd.Args[0]
+		if typeOf != "GET" {
+			return resp.SimpleError("ERR unknown subcommand '" + typeOf + "' for 'CONFIG' command")
+		}
+
+		var result resp.RESPType
+		if cmd.Args[1] == "dir" {
+			result = resp.Array([]resp.RESPType{
+				resp.BulkString(cmd.Args[1]),
+				resp.BulkString(s.dir),
+			})
+		} else if cmd.Args[1] == "dbfilename" {
+			result = resp.Array([]resp.RESPType{
+				resp.BulkString(cmd.Args[1]),
+				resp.BulkString(s.dbfilename),
+			})
+		}
+		return result
+
 	default:
 		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
 	}
@@ -116,12 +148,12 @@ func (s *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 // ******************************************************************
 
 // Both HandleConn and HandleMasterConn use this function to handle REPLCONF. Handle all REPLCONF commands here
-//* 1. REPLCONF GETACK * --> Sent my master to get acknowledgement of the offset of a slave
-//* 2. REPLCONF listening-port <PORT> --> sent by slave to master during Handshake. port on which the slave is listening on. Only used for logging. Not used for any other purpose
-//* 3. REPLCONF CAPA PSYNC2 --> Sent by slave to master During handshake. To say that the slave supports the PSYNC2 protocol.
-//* 4. REPLCONF ACK <offset> --> Sent by slave to master to acknowledge the offset of the master. Master uses this to track the offset of each slave.
-//! Replica-to-master communication uses HandleMasterConn on the replica.
-//! Master-side replica connections use HandleConn.
+// * 1. REPLCONF GETACK * --> Sent my master to get acknowledgement of the offset of a slave
+// * 2. REPLCONF listening-port <PORT> --> sent by slave to master during Handshake. port on which the slave is listening on. Only used for logging. Not used for any other purpose
+// * 3. REPLCONF CAPA PSYNC2 --> Sent by slave to master During handshake. To say that the slave supports the PSYNC2 protocol.
+// * 4. REPLCONF ACK <offset> --> Sent by slave to master to acknowledge the offset of the master. Master uses this to track the offset of each slave.
+// ! Replica-to-master communication uses HandleMasterConn on the replica.
+// ! Master-side replica connections use HandleConn.
 // if server is master -> valid commands are 2, 3, 4 (sent by slave). No response is sent back for 4. Response for 2, 3 is "OK". [handler called by HandleConn function for 2, 3, 4]
 // if server is slave -> valid commands are only 1 (sent by master). command 4 is sent as response as bulkarray [handler called by HandleMasterConn function for 1]
 func (s *Server) ReplconfHandler(cmd *resp.Command, client *Client) resp.RESPType {
