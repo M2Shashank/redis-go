@@ -46,7 +46,7 @@ func NewServer(port int, addr string, dataStore *store.Store) *Server {
 		Replication:   ReplicationInfo{},
 		Replicas:      make(map[*Client]*SlaveInfo),
 		ReplicasMutex: sync.RWMutex{},
-		AckChannel:    make(chan *ChannelItem, 10),
+		AckChannel:    make(chan *ChannelItem, 100),
 		Role:          "master", // default role is master. If replicaof specified, it will be changed to slave in server.Start()
 	}
 }

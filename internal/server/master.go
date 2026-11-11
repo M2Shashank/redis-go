@@ -68,9 +68,6 @@ forloop:
 			if receivedOffset >= expectedOffset {
 				numValidAcks++
 			}
-			if numValidAcks >= numSlaves {
-				break forloop
-			}
 
 		case <-timer.C:
 			break forloop
