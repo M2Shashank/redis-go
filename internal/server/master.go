@@ -66,7 +66,7 @@ drained:
 	}
 	temp := command.CommandToRESP(ReplConfGetackCmd)
 	rawCommand := resp.Encode(temp)
-	s.WriteCommandToSlaves(rawCommand, false)
+	s.WriteCommandToSlaves(rawCommand)
 
 	var numValidAcks int = 0
 
@@ -75,11 +75,7 @@ forloop:
 	for {
 		select {
 		case <-s.AckChannel:
-			// var expectedOffset int64 = s.Replicas[msg.client].expectedOffset
-			// var receivedOffset int64 = msg.offset
-			// if receivedOffset >= expectedOffset {
-			// 	numValidAcks++
-			// }
+			// Increment counter if an ack is received from a slave irrespective of the offset value.
 			numValidAcks++
 
 		case <-timer.C:
@@ -106,7 +102,7 @@ func (s *Server) SendRDBFile(client *Client) {
 }
 
 // Synchronous for now
-func (s *Server) WriteCommandToSlaves(rawCommand []byte, incrOffset bool) {
+func (s *Server) WriteCommandToSlaves(rawCommand []byte) {
 	s.ReplicasMutex.RLock()
 	defer s.ReplicasMutex.RUnlock()
 
@@ -119,8 +115,6 @@ func (s *Server) WriteCommandToSlaves(rawCommand []byte, incrOffset bool) {
 		}
 		fmt.Println("Notified slave of write: ", string(rawCommand))
 
-		if incrOffset {
-			slaveStruct.expectedOffset += int64(n)
-		}
+		slaveStruct.expectedOffset += int64(n)
 	}
 }
