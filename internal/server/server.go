@@ -4,25 +4,14 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
-type SlaveInfo struct {
-	expectedOffset int64
-}
-type ChannelItem struct {
-	offset int64
-	client *Client
-}
-
 type Server struct {
 	Port      int
-	Addr      string
 	Role      string
 	DataStore *store.Store
 
@@ -30,29 +19,23 @@ type Server struct {
 	dir        string
 	dbfilename string
 
-	//replication
-	Master        *Client                // used by slaves
-	Replicas      map[*Client]*SlaveInfo // used by master to track connected slaves
-	ReplicasMutex sync.RWMutex
-
-	//! stores the client and the offset it sent
-	//! the offset its supposed to have is stored in the SlaveInfo struct
-	AckChannel       chan *ChannelItem // used by master to receive ACKs from slaves.
-	Replication      ReplicationInfo
-	hasPendingWrites bool // used by master to track if atleast one write command has been sent to slaves.
+	// Replication Manager
+	ReplicationManager ReplicationManager
 }
 
-func NewServer(port int, addr string, dataStore *store.Store) *Server {
+func NewServer(port int, dataStore *store.Store, role string, replicaof string) *Server {
+	var manager ReplicationManager
+	if role == "master" {
+		manager = NewMasterManager()
+	} else {
+		manager = NewSlaveManager(replicaof)
+	}
+
 	return &Server{
-		Port:             port,
-		Addr:             addr,
-		DataStore:        dataStore,
-		Replication:      ReplicationInfo{},
-		Replicas:         make(map[*Client]*SlaveInfo),
-		ReplicasMutex:    sync.RWMutex{},
-		AckChannel:       make(chan *ChannelItem, 100),
-		Role:             "master", // default role is master. If replicaof specified, it will be changed to slave in server.Start()
-		hasPendingWrites: false,
+		Port:               port,
+		DataStore:          dataStore,
+		Role:               role,
+		ReplicationManager: manager,
 	}
 }
 
@@ -65,34 +48,42 @@ func Start(port int, addr string, dataStore *store.Store, flags []string) {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
-
-	replicaof, dir, dbfilename := flags[0], flags[1], flags[2]
-
 	fmt.Printf("Server listening on, %v\n", lis.Addr())
-	server := NewServer(port, addr, dataStore)
+
+	var role string
+	replicaof, dir, dbfilename := flags[0], flags[1], flags[2]
+	if replicaof != "" {
+		role = "slave"
+	} else {
+		role = "master"
+	}
+
+	server := NewServer(port, dataStore, role, replicaof)
 	server.dir = dir
 	server.dbfilename = dbfilename
-	server.SetBasicReplicationInfo(replicaof)
 
 	if server.Role == "slave" {
 		// Connect to master and perform handshake
-		masterAddr := strings.ReplaceAll(replicaof, " ", ":")
-		masterClient, err := server.connectToMaster(masterAddr)
+
+		//use master host and port fields of the slavemanager to connect to master.
+		err := server.connectToMaster()
 		if err != nil {
 			fmt.Println("Error connecting to master: ", err.Error())
 			os.Exit(1)
 		}
-		server.Master = masterClient // MasterConnection is set for a slave
+		// The master connection is stored in the SlaveManager's Master field.
+		// access the master using the s.ReplicationManager.(*SlaveManager).Master field. This is the client connection to the master.
+
 		err = server.InitiateHandshake()
 		if err != nil {
 			fmt.Println("Error initiating handshake: ", err.Error())
 			os.Exit(1)
 		}
-		fmt.Printf("Connected to master at %s and completed the Handshake\n", masterAddr)
+		fmt.Printf("Connected to master and completed the Handshake\n")
 
 		// Start handling commands from master to replicate the data.
 		// This is a blocking call and will run in the background for the lifetime of the slave server.
-		go HandleMasterConn(server.Master, dataStore)
+		go HandleMasterConn(server.GetSlaveMaster(), dataStore)
 	}
 
 	// slave server will also accept connections from clients.
@@ -167,23 +158,13 @@ func (s *Server) ReplconfHandler(cmd *resp.Command, client *Client) resp.RESPTyp
 	switch strings.ToUpper(cmd.Args[0]) {
 
 	case "GETACK": // sent by master
-		if s.Role == "slave" { // received by slave
-			var offset int64 = s.Replication.master_repl_offset
-			result = resp.Array([]resp.RESPType{
-				resp.BulkString("REPLCONF"),
-				resp.BulkString("ACK"),
-				resp.BulkString(strconv.FormatInt(offset, 10)),
-			})
-		} // returned result to HandleMasterConn function
+		// slave handles the GETACK command and sends the current offset of the slave to the master.
+		result = s.ReplicationManager.(*SlaveManager).HandleGETACK()
+		// returned result to HandleMasterConn function
 
 	case "ACK": // sent by slave
-		if s.Role == "master" { // received by master
-			offset, _ := strconv.ParseInt(cmd.Args[1], 10, 64)
-			s.AckChannel <- &ChannelItem{
-				offset: offset,
-				client: client,
-			}
-		}
+		// master handles the ACK and adds it to the AckChannel.
+		s.ReplicationManager.(*MasterManager).HandleACK(cmd.Args[1], client) // No response is sent back to slave for this command.
 		result = resp.SimpleString("IGNORE")
 		// Ignored in the HandleConn function. Master does not send any response back to slave for REPLCONF ACK command.
 
@@ -196,7 +177,7 @@ func (s *Server) ReplconfHandler(cmd *resp.Command, client *Client) resp.RESPTyp
 }
 
 func InfoHandler(server *Server) resp.RESPType {
-	var replInfo map[string]string = server.Replication.Info()
+	var replInfo map[string]string = server.GetInfo()
 
 	info := strings.Builder{}
 	fmt.Fprintf(&info, "# Replication\r\n")
@@ -205,3 +186,19 @@ func InfoHandler(server *Server) resp.RESPType {
 	}
 	return resp.BulkString(info.String())
 }
+
+// ***************************************************
+// ***************************************************
+// ***************************************************
+// TO be moved to replica and master files
+
+func (s *Server) GetInfo() map[string]string {
+	result := s.ReplicationManager.Info()
+	return result
+}
+
+// -----------------------------------------
+
+
+// ------------------------------------------
+

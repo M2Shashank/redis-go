@@ -12,15 +12,24 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
-func (s *Server) connectToMaster(masterAddr string) (*Client, error) {
+// connecting to master, performing handshake is server's responsibility.
+// sending commands to master and reading responses from master is handled by SlaveManager
+// The SlaveManager is also responsible for managing replication state, like tracking master's replication ID and its own offset
+
+//  These functions are used by slave servers only.
+
+func (s *Server) connectToMaster() error {
+	masterAddr := s.ReplicationManager.(*SlaveManager).GetMasterAddr()
 	conn, err := net.Dial("tcp", masterAddr)
 	if err != nil {
 		fmt.Println("Error connecting to master: ", err.Error())
-		return nil, err
+		return err
 	}
 
 	masterClient := NewClient(conn, s)
-	return masterClient, nil
+	s.ReplicationManager.(*SlaveManager).Master = masterClient // MasterConnection is set for a slave
+
+	return nil
 }
 
 func (s *Server) InitiateHandshake() error {
@@ -60,13 +69,12 @@ func (s *Server) InitiateHandshake() error {
 	resp, err := s.SendAndCheckCommandToMaster(psyncCmd, "+FULLRESYNC")
 	if err != nil {
 		return err
-	}
+	}	
 
-	fullResyncFields := strings.Fields(resp)
-	s.Replication.master_repl_offset, _ = strconv.ParseInt(fullResyncFields[2], 10, 64)
-	s.Replication.master_replid = fullResyncFields[1]
+	FULLRESYNCFields := strings.Fields(resp)
+	s.ReplicationManager.(*SlaveManager).SetPSYNCFields(FULLRESYNCFields)
 
-	rdbHeader, err := s.readResponseFromMaster(s.Master.Conn)
+	rdbHeader, err := s.readResponseFromMaster()
 	if err != nil {
 		return err
 	}
@@ -76,7 +84,7 @@ func (s *Server) InitiateHandshake() error {
 		return fmt.Errorf("invalid RDB length %q", rdbHeader)
 	}
 	rdb := make([]byte, rdbLength)
-	if _, err := io.ReadFull(s.Master.Conn, rdb); err != nil {
+	if _, err := io.ReadFull(s.ReplicationManager.(*SlaveManager).Master.Conn, rdb); err != nil {
 		return fmt.Errorf("error reading RDB: %v", err)
 	}
 	fmt.Println("Received RDB file from master, length:", rdbLength)
@@ -122,7 +130,7 @@ func HandleMasterConn(client *Client, s *store.Store) {
 				}
 			}
 
-			client.Server.increamentOffset(n)
+			client.Server.IncreamentOffset(n)
 		}
 	}
 }
@@ -130,18 +138,18 @@ func HandleMasterConn(client *Client, s *store.Store) {
 
 // ------------------- helper methods for replication 
 
-func (s *Server) increamentOffset(n int) {
-	s.Replication.master_repl_offset += int64(n)
+func (s *Server) IncreamentOffset(n int) {
+	s.ReplicationManager.(*SlaveManager).IncrementOffset(int64(n))
 }
 
 // -------------------------- Handshake helpers 
 
 func (s *Server) SendAndCheckCommandToMaster(cmd *resp.Command, expectedResponse string) (string, error) {
-	err := s.writeCommandToMaster(cmd, s.Master.Conn)
+	err := s.writeCommandToMaster(cmd)
 	if err != nil {
 		return "", err
 	}
-	responseStr, err := s.readResponseFromMaster(s.Master.Conn)
+	responseStr, err := s.readResponseFromMaster()
 	if err != nil {
 		return "", err
 	}
@@ -153,37 +161,25 @@ func (s *Server) SendAndCheckCommandToMaster(cmd *resp.Command, expectedResponse
 	return responseStr, nil
 }
 
-func (s *Server) writeCommandToMaster(cmd *resp.Command, masterConn net.Conn) error {
-	cmdArray := command.CommandToRESP(cmd)
+func (s *Server) writeCommandToMaster(cmd *resp.Command) error {
+	cmdArray := resp.CommandToRESP(cmd)
 	response := resp.Encode(cmdArray)
 
-	_, err := masterConn.Write(response)
+	err := s.ReplicationManager.(*SlaveManager).WriteCommandToMaster(response)
 	if err != nil {
-		return fmt.Errorf("ERR Error writing to master: %v", err)
+		return err
 	}
 	fmt.Printf("Sent command to master: %s\n", cmd.Com)
 	return nil
 }
 
-func (s *Server) readResponseFromMaster(masterConn net.Conn) (string, error) {
-	var response []byte
-	var previous byte
-
-	for {
-		var current [1]byte
-
-		if _, err := io.ReadFull(masterConn, current[:]); err != nil {
-			return "", fmt.Errorf("error reading from master: %v", err)
-		}
-
-		response = append(response, current[0])
-
-		if previous == '\r' && current[0] == '\n' {
-			return string(response), nil
-		}
-
-		previous = current[0]
-	}
+func (s *Server) readResponseFromMaster() (string, error) {
+	return s.ReplicationManager.(*SlaveManager).readResponseFromMaster()
 }
+
+func (s *Server) GetSlaveMaster() *Client {
+	return s.ReplicationManager.(*SlaveManager).Master
+}
+
 
 // ------------------------------------------

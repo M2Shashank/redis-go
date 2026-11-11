@@ -66,7 +66,7 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 				return resp.SimpleError(err.Error())
 			}
 
-			response := StreamEntriesToRESP(entries)
+			response := resp.StreamEntriesToRESP(entries)
 			return response
 		}
 
@@ -124,7 +124,7 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 				result = resultNew
 			}
 
-			response := ModStreamsToRESP(result)
+			response := resp.ModStreamsToRESP(result)
 			return response
 		}
 

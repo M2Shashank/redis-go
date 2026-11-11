@@ -53,7 +53,7 @@ func listHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			}
 
 			var list []string = dataStore.LRange(cmd.Args[0], left, right)
-			var respArray resp.RESPType = BulkArrayToRESP(list)
+			var respArray resp.RESPType = resp.ArrayToBulkRESP(list)
 
 			return respArray
 		}
@@ -99,7 +99,7 @@ func listHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 						return resp.SimpleError(err.Error())
 					}
 
-					response := BulkArrayToRESP(values)
+					response := resp.ArrayToBulkRESP(values)
 					return response
 				}
 			default:
@@ -130,7 +130,7 @@ func listHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			if value == "" {
 				arr = nil
 			}
-			var respArray resp.RESPType = BulkArrayToRESP(arr)
+			var respArray resp.RESPType = resp.ArrayToBulkRESP(arr)
 
 			return respArray
 		}

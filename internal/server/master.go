@@ -4,9 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
-	"time"
 
-	"github.com/codecrafters-io/redis-starter-go/internal/command"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
 
@@ -21,10 +19,7 @@ func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
 	switch cmd.Com {
 
 	case "PSYNC":
-		masterId := s.Replication.master_replid
-		masterOffset := s.Replication.master_repl_offset
-		str := fmt.Sprintf("FULLRESYNC %s %d", masterId, masterOffset)
-		result = resp.SimpleString(str)
+		s.ReplicationManager.(*MasterManager).HandlePSYNC()
 
 	case "WAIT":
 		if len(cmd.Args) != 2 {
@@ -36,7 +31,8 @@ func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
 			return resp.SimpleError("ERR invalid arguments for 'WAIT' command")
 		}
 
-		result = s.HandleWait(numSlaves, timeLimit)
+		var noOfValidAcks int = s.ReplicationManager.(*MasterManager).HandleWait(numSlaves, timeLimit)
+		result = resp.Integer(noOfValidAcks)
 
 	default:
 		result = resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
@@ -46,52 +42,12 @@ func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
 }
 
 func (s *Server) HandleWait(numSlaves int, timeLimit int) resp.RESPType {
-	if s.hasPendingWrites == false {
-		var val int = len(s.Replicas)
-		return resp.Integer(val)
-	}
-
-	for { // drain the channel before sending GETACK command to slaves
-		select {
-		case <-s.AckChannel:
-		default:
-			goto drained
-		}
-	}
-
-drained:
-	ReplConfGetackCmd := &resp.Command{
-		Com:  "REPLCONF",
-		Args: []string{"GETACK", "*"},
-	}
-	temp := command.CommandToRESP(ReplConfGetackCmd)
-	rawCommand := resp.Encode(temp)
-	s.WriteCommandToSlaves(rawCommand)
-
-	var numValidAcks int = 0
-
-	timer := time.NewTimer(time.Duration(timeLimit) * time.Millisecond)
-forloop:
-	for {
-		select {
-		case <-s.AckChannel:
-			// Increment counter if an ack is received from a slave irrespective of the offset value.
-			numValidAcks++
-
-		case <-timer.C:
-			break forloop
-		}
-	}
-	result := resp.Integer(numValidAcks)
-	return result
+	var result int = s.ReplicationManager.(*MasterManager).HandleWait(numSlaves, timeLimit)
+	return resp.Integer(result)
 }
 
 func (s *Server) AddSlave(client *Client) {
-	s.ReplicasMutex.Lock()
-	defer s.ReplicasMutex.Unlock()
-	s.Replicas[client] = &SlaveInfo{
-		expectedOffset: 0,
-	}
+	s.ReplicationManager.(*MasterManager).AddSlave(client)
 }
 
 func (s *Server) SendRDBFile(client *Client) {
@@ -101,20 +57,16 @@ func (s *Server) SendRDBFile(client *Client) {
 	(client.Conn).Write(rdbFile)
 }
 
+func (s *Server) GetMasterAckChannel() *chan *ChannelItem {
+	return &s.ReplicationManager.(*MasterManager).AckChannel
+}
+
+func (s *Server) DrainAckChannel() {
+	s.ReplicationManager.(*MasterManager).DrainAckChannel()
+}
+
 // Synchronous for now
 func (s *Server) WriteCommandToSlaves(rawCommand []byte) {
-	s.ReplicasMutex.RLock()
-	defer s.ReplicasMutex.RUnlock()
-
-	for slave, slaveStruct := range s.Replicas {
-		fmt.Printf("Sending to replica %s: %s\n", slave.Conn.RemoteAddr(), string(rawCommand))
-		n, err := slave.Conn.Write(rawCommand)
-		if err != nil {
-			fmt.Println("Error writing to slave: ", err.Error())
-			continue
-		}
-		fmt.Println("Notified slave of write: ", string(rawCommand))
-
-		slaveStruct.expectedOffset += int64(n)
-	}
+	s.ReplicationManager.(*MasterManager).WriteCommandToReplicas(rawCommand)
 }
+
