@@ -62,12 +62,13 @@ func (s *Server) HandleWait(numSlaves int, timeLimit int) resp.RESPType {
 forloop:
 	for {
 		select {
-		case msg := <-s.AckChannel:
-			var expectedOffset int64 = s.Replicas[msg.client].expectedOffset
-			var receivedOffset int64 = msg.offset
-			if receivedOffset >= expectedOffset {
-				numValidAcks++
-			}
+		case <-s.AckChannel:
+			// var expectedOffset int64 = s.Replicas[msg.client].expectedOffset
+			// var receivedOffset int64 = msg.offset
+			// if receivedOffset >= expectedOffset {
+			// 	numValidAcks++
+			// }
+			numValidAcks++
 
 		case <-timer.C:
 			break forloop
