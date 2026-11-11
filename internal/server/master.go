@@ -46,8 +46,20 @@ func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
 }
 
 func (s *Server) HandleWait(numSlaves int, timeLimit int) resp.RESPType {
-	s.AckChannel = make(chan *ChannelItem, 10) // reset the channel to avoid old ACKs being counted
+	if s.hasPendingWrites == false {
+		var val int = len(s.Replicas)
+		return resp.Integer(val)
+	}
 
+	for { // drain the channel before sending GETACK command to slaves
+		select {
+		case <-s.AckChannel:
+		default:
+			goto drained
+		}
+	}
+
+drained:
 	ReplConfGetackCmd := &resp.Command{
 		Com:  "REPLCONF",
 		Args: []string{"GETACK", "*"},

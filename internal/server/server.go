@@ -34,8 +34,8 @@ type Server struct {
 	//! stores the client and the offset it sent
 	//! the offset its supposed to have is stored in the SlaveInfo struct
 	AckChannel chan *ChannelItem // used by master to receive ACKs from slaves. 
-
 	Replication ReplicationInfo
+	hasPendingWrites bool // used by master to track if atleast one write command has been sent to slaves.
 }
 
 func NewServer(port int, addr string, dataStore *store.Store) *Server {
@@ -48,6 +48,7 @@ func NewServer(port int, addr string, dataStore *store.Store) *Server {
 		ReplicasMutex: sync.RWMutex{},
 		AckChannel:    make(chan *ChannelItem, 100),
 		Role:          "master", // default role is master. If replicaof specified, it will be changed to slave in server.Start()
+		hasPendingWrites: false,
 	}
 }
 

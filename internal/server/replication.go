@@ -45,12 +45,14 @@ func (r *ReplicationInfo) Info() map[string]string {
 
 func (s *Server) SetBasicReplicationInfo(masterAddr string) {
 	if masterAddr == "" {
+		s.Role = "master"
 		s.Replication.role = "master"
 		s.Replication.master_replid = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"
 		s.Replication.master_repl_offset = 0
 	} else {
 		parts := strings.Split(masterAddr, " ")
 
+		s.Role = "slave"
 		s.Replication.role = "slave"
 		s.Replication.master_host = parts[0]
 		s.Replication.master_port, _ = strconv.Atoi(parts[1])
