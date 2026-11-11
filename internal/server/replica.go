@@ -122,6 +122,8 @@ func HandleMasterConn(client *Client, s *store.Store) {
 					client.Server.increamentOffset(n)
 				}
 			}
+
+			// client.Server.increamentOffset(n)
 		}
 	}
 }

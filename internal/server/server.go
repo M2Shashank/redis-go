@@ -13,8 +13,11 @@ import (
 )
 
 type SlaveInfo struct {
-	expectedOffset     int64
-	acknowledgedOffset int64
+	expectedOffset int64
+}
+type ChannelItem struct {
+	offset int64
+	client *Client
 }
 
 type Server struct {
@@ -28,6 +31,10 @@ type Server struct {
 	Replicas      map[*Client]*SlaveInfo // used by master to track connected slaves
 	ReplicasMutex sync.RWMutex
 
+	//! stores the client and the offset it sent
+	//! the offset its supposed to have is stored in the SlaveInfo struct
+	AckChannel chan *ChannelItem // used by master to receive ACKs from slaves. 
+
 	Replication ReplicationInfo
 }
 
@@ -39,6 +46,7 @@ func NewServer(port int, addr string, dataStore *store.Store) *Server {
 		Replication:   ReplicationInfo{},
 		Replicas:      make(map[*Client]*SlaveInfo),
 		ReplicasMutex: sync.RWMutex{},
+		AckChannel:    make(chan *ChannelItem, 10),
 		Role:          "master", // default role is master. If replicaof specified, it will be changed to slave in server.Start()
 	}
 }
@@ -137,16 +145,11 @@ func (s *Server) ReplconfHandler(cmd *resp.Command, client *Client) resp.RESPTyp
 
 	case "ACK": // sent by slave
 		if s.Role == "master" { // received by master
-			offset, err := strconv.ParseInt(cmd.Args[1], 10, 64)
-			if err != nil {
-				return resp.SimpleError("ERR invalid replication offset")
+			offset, _ := strconv.ParseInt(cmd.Args[1], 10, 64)
+			s.AckChannel <- &ChannelItem{
+				offset: offset,
+				client: client,
 			}
-
-			s.ReplicasMutex.Lock()
-			if slaveInfo, ok := s.Replicas[client]; ok {
-				slaveInfo.acknowledgedOffset = offset
-			}
-			s.ReplicasMutex.Unlock()
 		}
 		result = resp.SimpleString("IGNORE")
 		// Ignored in the HandleConn function. Master does not send any response back to slave for REPLCONF ACK command.

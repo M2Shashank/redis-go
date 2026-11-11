@@ -46,6 +46,8 @@ func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
 }
 
 func (s *Server) HandleWait(numSlaves int, timeLimit int) resp.RESPType {
+	s.AckChannel = make(chan *ChannelItem, 10) // reset the channel to avoid old ACKs being counted
+
 	ReplConfGetackCmd := &resp.Command{
 		Com:  "REPLCONF",
 		Args: []string{"GETACK", "*"},
@@ -54,23 +56,28 @@ func (s *Server) HandleWait(numSlaves int, timeLimit int) resp.RESPType {
 	rawCommand := resp.Encode(temp)
 	s.WriteCommandToSlaves(rawCommand, false)
 
+	var numValidAcks int = 0
+
 	timer := time.NewTimer(time.Duration(timeLimit) * time.Millisecond)
-	defer timer.Stop()
-
-	ticker := time.NewTicker(time.Millisecond)
-	defer ticker.Stop()
-
+forloop:
 	for {
-		if s.countAcknowledgedSlaves() >= numSlaves {
-			return resp.Integer(s.countAcknowledgedSlaves())
-		}
-
 		select {
-		case <-ticker.C:
+		case msg := <-s.AckChannel:
+			var expectedOffset int64 = s.Replicas[msg.client].expectedOffset
+			var receivedOffset int64 = msg.offset
+			if receivedOffset == expectedOffset {
+				numValidAcks++
+			}
+			if numValidAcks >= numSlaves {
+				break forloop
+			}
+
 		case <-timer.C:
-			return resp.Integer(s.countAcknowledgedSlaves())
+			break forloop
 		}
 	}
+	result := resp.Integer(numValidAcks)
+	return result
 }
 
 func (s *Server) AddSlave(client *Client) {
@@ -90,8 +97,8 @@ func (s *Server) SendRDBFile(client *Client) {
 
 // Synchronous for now
 func (s *Server) WriteCommandToSlaves(rawCommand []byte, incrOffset bool) {
-	s.ReplicasMutex.Lock()
-	defer s.ReplicasMutex.Unlock()
+	s.ReplicasMutex.RLock()
+	defer s.ReplicasMutex.RUnlock()
 
 	for slave, slaveStruct := range s.Replicas {
 		fmt.Printf("Sending to replica %s: %s\n", slave.Conn.RemoteAddr(), string(rawCommand))
@@ -106,17 +113,4 @@ func (s *Server) WriteCommandToSlaves(rawCommand []byte, incrOffset bool) {
 			slaveStruct.expectedOffset += int64(n)
 		}
 	}
-}
-
-func (s *Server) countAcknowledgedSlaves() int {
-	s.ReplicasMutex.RLock()
-	defer s.ReplicasMutex.RUnlock()
-
-	count := 0
-	for _, slaveInfo := range s.Replicas {
-		if slaveInfo.acknowledgedOffset >= slaveInfo.expectedOffset {
-			count++
-		}
-	}
-	return count
 }
