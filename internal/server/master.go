@@ -65,7 +65,7 @@ forloop:
 		case msg := <-s.AckChannel:
 			var expectedOffset int64 = s.Replicas[msg.client].expectedOffset
 			var receivedOffset int64 = msg.offset
-			if receivedOffset == expectedOffset {
+			if receivedOffset >= expectedOffset {
 				numValidAcks++
 			}
 			if numValidAcks >= numSlaves {
