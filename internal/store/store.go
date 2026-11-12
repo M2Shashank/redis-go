@@ -1,7 +1,12 @@
 package store
 
 import (
+	"fmt"
+	"os"
 	"sync"
+	"time"
+
+	RDB_Parser "github.com/codecrafters-io/redis-starter-go/internal/store/rdb_parser"
 )
 
 type Store struct {
@@ -46,4 +51,40 @@ func (s *Store) TypeOf(key string) string {
 	default:
 		return "none"
 	}
+}
+
+func (s *Store) LoadFromRDBFile(dir string, dbfilename string) {
+	addr := dir + "/" + dbfilename
+
+	data, err := os.ReadFile(addr)
+	if err != nil {
+		fmt.Println("Error reading RDB file: ", err.Error())
+		return
+	}
+	fmt.Println("Read ", len(data), " bytes from RDB file: ", addr)
+
+	result := RDB_Parser.ParseRDBFile(data)
+
+	for key, valueType := range result {
+		_, value, expireTime := valueType.Type, valueType.Value, valueType.ExpireTimeMS
+
+		s.Set(key, string(value))
+		if expireTime > 0 {
+			go func() {
+				time.Sleep(time.Duration(expireTime) * time.Millisecond)
+				s.Delete(key)
+			}()
+		}
+	}
+}
+
+func (s *Store) GetKeysOfPattern(pattern string) []string {
+	s.dataMutex.RLock()
+	defer s.dataMutex.RUnlock()
+
+	var keys []string
+	for key := range s.data {
+		keys = append(keys, key)
+	}
+	return keys
 }

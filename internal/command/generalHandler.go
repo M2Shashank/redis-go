@@ -30,9 +30,16 @@ func generalHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 		return resp.SimpleString(typeStr)
 
-	case "INFO":
-		result := resp.BulkString("# Replication\r\nrole:master\r\n")
-		return result
+	case "KEYS":
+		if len(cmd.Args) != 1 {
+			return resp.SimpleError("ERR Invalid command syntax for KEYS command")
+		}
+		// handling for * for now
+		var pattern string = cmd.Args[0]
+		var keys []string = dataStore.GetKeysOfPattern(pattern)
+
+		var response resp.RESPType = resp.ArrayToBulkRESP(keys)
+		return response
 
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")

@@ -118,5 +118,5 @@ func (client *Client) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 // Persistence related function. Delegated to PersistenceManager.
 
 func (client *Client) PersistenceHandler(cmd *resp.Command) resp.RESPType {
-	return client.Server.PersistanceHandler(cmd)
+	return client.Server.Persistence.PersistanceHandler(cmd)
 }

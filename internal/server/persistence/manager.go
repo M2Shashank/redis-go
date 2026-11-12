@@ -1,24 +1,22 @@
-package server
+package persistence
 
 import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
 
-type PersistenceManager struct {
+type Manager struct {
 	dir        string
 	dbfilename string
 }
 
-func NewPersistenceManager(dir string, dbfilename string) *PersistenceManager {
-	return &PersistenceManager{
+func NewPersistenceManager(dir string, dbfilename string) *Manager {
+	return &Manager{
 		dir:        dir,
 		dbfilename: dbfilename,
 	}
 }
 
-func (s *Server) PersistanceHandler(cmd *resp.Command) resp.RESPType {
-	var manager *PersistenceManager = s.Persistence
-
+func (m *Manager) PersistanceHandler(cmd *resp.Command) resp.RESPType {
 	var result resp.RESPType
 	switch cmd.Com {
 
@@ -35,12 +33,12 @@ func (s *Server) PersistanceHandler(cmd *resp.Command) resp.RESPType {
 		if cmd.Args[1] == "dir" {
 			result = resp.Array([]resp.RESPType{
 				resp.BulkString(cmd.Args[1]),
-				resp.BulkString(manager.dir),
+				resp.BulkString(m.dir),
 			})
 		} else if cmd.Args[1] == "dbfilename" {
 			result = resp.Array([]resp.RESPType{
 				resp.BulkString(cmd.Args[1]),
-				resp.BulkString(manager.dbfilename),
+				resp.BulkString(m.dbfilename),
 			})
 		}
 

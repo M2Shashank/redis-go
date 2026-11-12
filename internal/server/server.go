@@ -9,6 +9,7 @@ import (
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
+	persistence "github.com/codecrafters-io/redis-starter-go/internal/server/persistence"
 )
 
 type Server struct {
@@ -21,7 +22,7 @@ type Server struct {
 	SlaveManager  *SlaveManager
 
 	//? persistence related fields. Used by both
-	Persistence *PersistenceManager
+	Persistence *persistence.Manager
 }
 
 func NewServer(flags []string) *Server {
@@ -31,7 +32,7 @@ func NewServer(flags []string) *Server {
 	if replicaof != "" {
 		role = "slave"
 	}
-	var manager *PersistenceManager = NewPersistenceManager(dir, dbfilename)
+	var manager *persistence.Manager = persistence.NewPersistenceManager(dir, dbfilename)
 
 	var masterManager *MasterManager = nil
 	var slaveManager *SlaveManager = nil
@@ -42,6 +43,7 @@ func NewServer(flags []string) *Server {
 	}
 
 	dataStore := store.NewStore()
+	dataStore.LoadFromRDBFile(dir, dbfilename) // Load data from RDB file if it exists. If not, start with an empty store.
 
 	return &Server{
 		Port:               port,
@@ -65,7 +67,7 @@ func Start(addr string, flags []string) {
 	fmt.Printf("Server listening on, %v\n", lis.Addr())
 
 	server := NewServer(flags)
-	
+
 	// Connect to master and perform handshake and start the connection if slave
 	if server.Role == "slave" {
 		// Connect to master and perform handshake
