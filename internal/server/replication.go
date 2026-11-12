@@ -4,11 +4,11 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"io"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
@@ -29,12 +29,6 @@ type ChannelItem struct {
 // --------------------------------------------..........
 
 // ------------------------------ Main Replication Manager Structs
-
-type ReplicationManager interface {
-	isReplicationManager()
-	Info() map[string]string
-}
-
 type MasterManager struct {
 	Replicas      map[*Client]*SlaveInfo // used by master to track connected slaves
 	ReplicasMutex sync.RWMutex
@@ -62,10 +56,6 @@ type SlaveManager struct {
 	master_host string // host of the master server used by slave
 	master_port int    // port of the master server used by slave
 }
-
-func (m *MasterManager) isReplicationManager() {}
-func (s *SlaveManager) isReplicationManager()  {}
-
 // ------------------------------------................
 
 // --------------------------- Object Factory functions
@@ -174,7 +164,6 @@ func (s *SlaveManager) SetPSYNCFields(FULLRESYNCFields []string) {
 	master_repl_offset, _ := strconv.ParseInt(FULLRESYNCFields[2], 10, 64)
 	s.repl_offset = master_repl_offset
 }
-
 
 //! Master Manager mathods
 

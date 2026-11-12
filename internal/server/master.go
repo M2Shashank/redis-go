@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
@@ -19,7 +20,7 @@ func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
 	switch cmd.Com {
 
 	case "PSYNC":
-		s.ReplicationManager.(*MasterManager).HandlePSYNC()
+		s.MasterManager.HandlePSYNC()
 
 	case "WAIT":
 		if len(cmd.Args) != 2 {
@@ -31,7 +32,7 @@ func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
 			return resp.SimpleError("ERR invalid arguments for 'WAIT' command")
 		}
 
-		var noOfValidAcks int = s.ReplicationManager.(*MasterManager).HandleWait(numSlaves, timeLimit)
+		var noOfValidAcks int = s.MasterManager.HandleWait(numSlaves, timeLimit)
 		result = resp.Integer(noOfValidAcks)
 
 	default:
@@ -42,12 +43,12 @@ func (s *Server) MasterServerCommandHandler(cmd *resp.Command) resp.RESPType {
 }
 
 func (s *Server) HandleWait(numSlaves int, timeLimit int) resp.RESPType {
-	var result int = s.ReplicationManager.(*MasterManager).HandleWait(numSlaves, timeLimit)
+	var result int = s.MasterManager.HandleWait(numSlaves, timeLimit)
 	return resp.Integer(result)
 }
 
 func (s *Server) AddSlave(client *Client) {
-	s.ReplicationManager.(*MasterManager).AddSlave(client)
+	s.MasterManager.AddSlave(client)
 }
 
 func (s *Server) SendRDBFile(client *Client) {
@@ -58,15 +59,44 @@ func (s *Server) SendRDBFile(client *Client) {
 }
 
 func (s *Server) GetMasterAckChannel() *chan *ChannelItem {
-	return &s.ReplicationManager.(*MasterManager).AckChannel
+	return &s.MasterManager.AckChannel
 }
 
 func (s *Server) DrainAckChannel() {
-	s.ReplicationManager.(*MasterManager).DrainAckChannel()
+	s.MasterManager.DrainAckChannel()
 }
 
 // Synchronous for now
 func (s *Server) WriteCommandToSlaves(rawCommand []byte) {
-	s.ReplicationManager.(*MasterManager).WriteCommandToReplicas(rawCommand)
+	s.MasterManager.WriteCommandToReplicas(rawCommand)
 }
 
+
+// Replconf commands include:
+// * 1. REPLCONF GETACK * --> Sent my master to get acknowledgement of the offset of a slave
+// * 2. REPLCONF listening-port <PORT> --> sent by slave to master during Handshake. port on which the slave is listening on. Only used for logging. Not used for any other purpose
+// * 3. REPLCONF CAPA PSYNC2 --> Sent by slave to master During handshake. To say that the slave supports the PSYNC2 protocol.
+// * 4. REPLCONF ACK <offset> --> Sent by slave to master to acknowledge the offset of the master. Master uses this to track the offset of each slave.
+// ! Replica-to-master communication uses HandleMasterConn on the replica.
+// ! Master-side replica connections use HandleConn.
+// if server is master -> valid commands are 2, 3, 4 (sent by slave). No response is sent back for 4. Response for 2, 3 is "OK". [handler called by HandleConn function for 2, 3, 4]
+// if server is slave -> valid commands are only 1 (sent by master). command 4 is sent as response as bulkarray [handler called by HandleMasterConn function for 1]
+// This function is for handling REPLCONF commands sent by slave to master. So for 2, 3, 4
+func (s *Server) MasterReplconfHandler(cmd *resp.Command, client *Client) resp.RESPType {
+	var result resp.RESPType = resp.SimpleString("OK")
+
+	switch strings.ToUpper(cmd.Args[0]) {
+
+	case "ACK": // sent by slave
+		// master handles the ACK and adds it to the AckChannel.
+		s.MasterManager.HandleACK(cmd.Args[1], client) // No response is sent back to slave for this command.
+		result = resp.SimpleString("IGNORE")
+		// Ignored in the HandleConn function. Master does not send any response back to slave for REPLCONF ACK command.
+
+	default:
+		result = resp.SimpleString("OK")
+
+	}
+
+	return result
+}

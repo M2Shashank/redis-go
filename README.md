@@ -40,3 +40,4 @@ Things to Restructure or Modify
 2. BLPOP connection channels need to be popped of the map if clients disconnects
 5. Draw LLD 
 6. Validate the command before queueing - Transactions
+7. Inconsistency in the command execution. In mastercommandhandler

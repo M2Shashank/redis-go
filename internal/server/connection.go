@@ -5,12 +5,13 @@ import (
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
+	"github.com/codecrafters-io/redis-starter-go/internal/command"
 )
 
 // used by both master and slave to handle client connections
 // slave can send commands to master thorugh this function (as master is also a client for slave)
 // Master cannot send commands to slave through this function, as handleConn function is not called for masterConn. (only client connections)
-func HandleConn(client *Client, s *store.Store) {
+func HandleClientConn(client *Client, s *store.Store) {
 	defer (client.Conn).Close()
 	var buff []byte = make([]byte, 1024)
 	var readBuffer []byte
@@ -36,7 +37,7 @@ func HandleConn(client *Client, s *store.Store) {
 			result = routeCommand(client, s, cmd)
 
 			if client.Server.Role == "master" && result.Type() != "SimpleError" && cmd.Com != "PING" && cmd.Com != "REPLCONF" && cmd.Com != "PSYNC" && cmd.Com != "INFO" && cmd.Com != "WAIT" {
-				client.Server.ReplicationManager.(*MasterManager).hasPendingWrites = true
+				client.Server.MasterManager.hasPendingWrites = true
 				client.Server.WriteCommandToSlaves(rawCommand)
 			}
 
@@ -56,4 +57,36 @@ func HandleConn(client *Client, s *store.Store) {
 			}
 		}
 	}
+}
+
+
+
+// Called from handleConn(). So handling Clients . Master included as Client for a Slave server
+// Routes commands based on server type (master/slave) and command type (replication, server, transaction, etc.)
+// ExecuteCommand executes only client side commands
+func routeCommand(client *Client, s *store.Store, cmd *resp.Command) resp.RESPType {
+	var result resp.RESPType
+
+	switch cmd.Com {
+
+	case "PSYNC", "WAIT":
+		// master implements these commands.
+		result = client.Server.MasterServerCommandHandler(cmd)
+	case "INFO", "CONFIG", "REPLCONF":
+		//  Related Commands
+		result = client.Server.ServerCommandHandler(cmd)
+	case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
+		// Transaction Commands handled by Client
+		result = client.TransactionHandler(cmd, s)
+	default: // All other commands handled by (Command package)
+		if client.inTransaction {
+			client.queuedCmds.Push(cmd)
+			result = resp.SimpleString("QUEUED")
+		} else {
+			result = command.ExecuteCommand(cmd, s)
+		}
+
+	}
+
+	return result
 }

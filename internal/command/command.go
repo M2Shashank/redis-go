@@ -7,6 +7,8 @@ import (
 
 var SimpleOK resp.RESPType = resp.SimpleString("OK")
 
+// handles all store related commands.
+
 func ExecuteCommand(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	var result resp.RESPType
 	switch cmd.Com {

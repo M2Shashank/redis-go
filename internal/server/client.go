@@ -15,9 +15,9 @@ type Client struct {
 	Conn net.Conn
 	Server *Server
 
-	queuedCmds *collections.Queue[*resp.Command]
-	watchedKeys map[string]int64
-	inTransaction bool
+	queuedCmds *collections.Queue[*resp.Command] // for multi/ exec transactions
+	watchedKeys map[string]int64 // for watch command. Stores the key and its version at the time of WATCH command
+	inTransaction bool // true if MULTI command has been issued and EXEC or DISCARD is pending. false otherwise.
 }
 
 func NewClient(conn net.Conn, server *Server) *Client {

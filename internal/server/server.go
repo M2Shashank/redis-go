@@ -15,27 +15,32 @@ type Server struct {
 	Role      string
 	DataStore *store.Store
 
+	// Replication Managers. A server uses one of these based on its role.
+	MasterManager *MasterManager
+	SlaveManager  *SlaveManager
+
 	//? persistence related fields. Used by both
 	dir        string
 	dbfilename string
-
-	// Replication Manager
-	ReplicationManager ReplicationManager
 }
 
 func NewServer(port int, dataStore *store.Store, role string, replicaof string) *Server {
-	var manager ReplicationManager
+	var masterManager *MasterManager
+	var slaveManager *SlaveManager
 	if role == "master" {
-		manager = NewMasterManager()
+		masterManager = NewMasterManager()
+		slaveManager = nil
 	} else {
-		manager = NewSlaveManager(replicaof)
+		slaveManager = NewSlaveManager(replicaof)
+		masterManager = nil
 	}
 
 	return &Server{
 		Port:               port,
 		DataStore:          dataStore,
 		Role:               role,
-		ReplicationManager: manager,
+		MasterManager:      masterManager,
+		SlaveManager:       slaveManager,
 	}
 }
 
@@ -62,6 +67,7 @@ func Start(port int, addr string, dataStore *store.Store, flags []string) {
 	server.dir = dir
 	server.dbfilename = dbfilename
 
+	// Connect to master and perform handshake and start the connection if slave
 	if server.Role == "slave" {
 		// Connect to master and perform handshake
 
@@ -86,7 +92,6 @@ func Start(port int, addr string, dataStore *store.Store, flags []string) {
 		go HandleMasterConn(server.GetSlaveMaster(), dataStore)
 	}
 
-	// slave server will also accept connections from clients.
 	// Run for both master and slave servers to accept connections from clients.
 	for {
 		conn, err := lis.Accept()
@@ -99,7 +104,7 @@ func Start(port int, addr string, dataStore *store.Store, flags []string) {
 
 		client := NewClient(conn, server)
 
-		go HandleConn(client, dataStore)
+		go HandleClientConn(client, dataStore)
 	}
 }
 
@@ -107,6 +112,8 @@ func (s *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 	switch cmd.Com {
 	case "INFO":
 		return InfoHandler(s)
+	case "REPLCONF":
+		return s.ReplconfHandler(cmd, nil)
 	case "CONFIG":
 		if len(cmd.Args) != 2 {
 			return resp.SimpleError("ERR wrong number of arguments for 'CONFIG' command")
@@ -154,30 +161,27 @@ func (s *Server) ReplconfHandler(cmd *resp.Command, client *Client) resp.RESPTyp
 	}
 
 	var result resp.RESPType = resp.SimpleString("OK")
-
 	switch strings.ToUpper(cmd.Args[0]) {
 
-	case "GETACK": // sent by master
-		// slave handles the GETACK command and sends the current offset of the slave to the master.
-		result = s.ReplicationManager.(*SlaveManager).HandleGETACK()
-		// returned result to HandleMasterConn function
-
-	case "ACK": // sent by slave
-		// master handles the ACK and adds it to the AckChannel.
-		s.ReplicationManager.(*MasterManager).HandleACK(cmd.Args[1], client) // No response is sent back to slave for this command.
-		result = resp.SimpleString("IGNORE")
-		// Ignored in the HandleConn function. Master does not send any response back to slave for REPLCONF ACK command.
+	case "GETACK": // sent by master to slave
+		// handles the REPLCONF commands sent by slave to master. So for 1
+		result = s.SlaveReplconfHandler(cmd, client) 
 
 	default:
-		result = resp.SimpleString("OK")
+		// handles the REPLCONF commands sent by master to slave. So for 2, 3, 4
+		result = s.MasterReplconfHandler(cmd, client)
 
 	}
-
 	return result
 }
 
 func InfoHandler(server *Server) resp.RESPType {
-	var replInfo map[string]string = server.GetInfo()
+	var replInfo map[string]string
+	if server.Role == "master" {
+		replInfo = server.MasterManager.Info()
+	} else {
+		replInfo = server.SlaveManager.Info()
+	}
 
 	info := strings.Builder{}
 	fmt.Fprintf(&info, "# Replication\r\n")
@@ -186,19 +190,3 @@ func InfoHandler(server *Server) resp.RESPType {
 	}
 	return resp.BulkString(info.String())
 }
-
-// ***************************************************
-// ***************************************************
-// ***************************************************
-// TO be moved to replica and master files
-
-func (s *Server) GetInfo() map[string]string {
-	result := s.ReplicationManager.Info()
-	return result
-}
-
-// -----------------------------------------
-
-
-// ------------------------------------------
-
