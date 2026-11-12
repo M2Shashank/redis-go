@@ -3,47 +3,12 @@ package server
 import (
 	"encoding/hex"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
 
 var emptyRDBFileHex string = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2"
-
-func (client *Client) MasterCommandHandler(cmd *resp.Command) resp.RESPType {
-	var server *Server = client.Server
-	var server_repl__manager *MasterManager = server.MasterManager
-	
-	if server.Role != "master" {
-		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
-	}
-
-	var result resp.RESPType
-	switch cmd.Com {
-
-	case "PSYNC":
-		server.MasterManager.HandlePSYNC()
-
-	case "WAIT":
-		if len(cmd.Args) != 2 {
-			return resp.SimpleError("ERR wrong number of arguments for 'WAIT' command")
-		}
-		numSlaves, err1 := strconv.Atoi(cmd.Args[0])
-		timeLimit, err2 := strconv.Atoi(cmd.Args[1])
-		if err1 != nil || err2 != nil {
-			return resp.SimpleError("ERR invalid arguments for 'WAIT' command")
-		}
-
-		var noOfValidAcks int = server_repl__manager.HandleWait(numSlaves, timeLimit)
-		result = resp.Integer(noOfValidAcks)
-
-	default:
-		result = resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
-
-	}
-	return result
-}
 
 func (s *Server) HandleWait(numSlaves int, timeLimit int) resp.RESPType {
 	var result int = s.MasterManager.HandleWait(numSlaves, timeLimit)

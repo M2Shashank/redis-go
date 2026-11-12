@@ -58,6 +58,39 @@ func HandleConn(client *Client) {
 	}
 }
 
+// Called from handleConn(). So handling Clients . Master included as Client for a Slave server
+// Routes commands based on server type (master/slave) and command type (replication, server, transaction, etc.)
+// Command Package's ExecuteCommand executes only client side commands
+func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
+	var result resp.RESPType
+
+	switch cmd.Com {
+
+	case "PSYNC", "WAIT":
+		// master implements these commands.
+		result = client.MasterCommandHandler(cmd)
+	case "INFO", "REPLCONF":
+		// Server Related Commands. Both master and slave
+		result = client.ServerCommandHandler(cmd)
+	case "CONFIG":
+		// Config commands handled by PersistenceManager.
+		result = client.PersistenceHandler(cmd)
+	case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
+		// Transaction Commands handled by Client
+		result = client.TransactionHandler(cmd)
+	default: // All other commands handled by (Command package)
+		if client.inTransaction {
+			client.queuedCmds.Push(cmd)
+			result = resp.SimpleString("QUEUED")
+		} else {
+			result = command.StoreCommandHandler(cmd, client.Server.DataStore)
+		}
+
+	}
+
+	return result
+}
+
 // used by slave to handle commands from master
 // Commands from clients to slave are handled in HandleConn function, which takes care of sending responses back
 // reading for commands from master and executing them on slave. No response is sent back to master for these commands.

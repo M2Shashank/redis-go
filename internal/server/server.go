@@ -21,11 +21,18 @@ type Server struct {
 	SlaveManager  *SlaveManager
 
 	//? persistence related fields. Used by both
-	dir        string
-	dbfilename string
+	Persistence *PersistenceManager
 }
 
-func NewServer(port int, role string, replicaof string) *Server {
+func NewServer(flags []string) *Server {
+	portStr, replicaof, dir, dbfilename := flags[0], flags[1], flags[2], flags[3]
+	port, _ := strconv.Atoi(portStr)
+	var role string = "master"
+	if replicaof != "" {
+		role = "slave"
+	}
+	var manager *PersistenceManager = NewPersistenceManager(dir, dbfilename)
+
 	var masterManager *MasterManager = nil
 	var slaveManager *SlaveManager = nil
 	if role == "master" {
@@ -42,6 +49,7 @@ func NewServer(port int, role string, replicaof string) *Server {
 		Role:               role,
 		MasterManager:      masterManager,
 		SlaveManager:       slaveManager,
+		Persistence:        manager,
 	}
 }
 
@@ -56,19 +64,8 @@ func Start(addr string, flags []string) {
 	}
 	fmt.Printf("Server listening on, %v\n", lis.Addr())
 
-	var role string
-	portStr, replicaof, dir, dbfilename := flags[0], flags[1], flags[2], flags[3]
-	if replicaof != "" {
-		role = "slave"
-	} else {
-		role = "master"
-	}
-
-	port, _ := strconv.Atoi(portStr)
-	server := NewServer(int(port), role, replicaof)
-	server.dir = dir
-	server.dbfilename = dbfilename
-
+	server := NewServer(flags)
+	
 	// Connect to master and perform handshake and start the connection if slave
 	if server.Role == "slave" {
 		// Connect to master and perform handshake
