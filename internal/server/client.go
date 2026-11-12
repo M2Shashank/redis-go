@@ -5,7 +5,6 @@ import (
 
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
-	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
 // Client represents a single client connection.
@@ -30,8 +29,8 @@ func NewClient(conn net.Conn, server *Server) *Client {
 	}
 }
 
-func (c *Client) setWatchKey(key string, s *store.Store) {
-	var version int64 = s.GetKeyVersion(key)
+func (c *Client) setWatchKey(key string) {
+	var version int64 = c.Server.DataStore.GetKeyVersion(key)
 	c.watchedKeys[key] = version
 }
 
@@ -43,9 +42,9 @@ func (c *Client) clearQueuedCmds() {
 	c.queuedCmds.Clear()
 }
 
-func (c *Client) isValidTransaction(s *store.Store) bool {
+func (c *Client) isValidTransaction() bool {
 	for key, version := range c.watchedKeys {
-		currentVersion := s.GetKeyVersion(key)
+		currentVersion := c.Server.DataStore.GetKeyVersion(key)
 		if currentVersion != version {
 			return false
 		}

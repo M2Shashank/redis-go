@@ -9,7 +9,6 @@ import (
 
 	"github.com/codecrafters-io/redis-starter-go/internal/command"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
-	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
 // connecting to master, performing handshake is server's responsibility.
@@ -97,7 +96,7 @@ func (s *Server) InitiateHandshake() error {
 // reading for commands from master and executing them on slave. No response is sent back to master for these commands.
 // reading and writing commands to master from slave -> handleMasterConn function
 // reading and writing commands to slave from master -> handleConn function
-func HandleMasterConn(client *Client, s *store.Store) {
+func HandleMasterConn(client *Client) {
 	defer (client.Conn).Close()
 	var buff []byte = make([]byte, 1024)
 	var readBuffer []byte
@@ -126,7 +125,7 @@ func HandleMasterConn(client *Client, s *store.Store) {
 				(client.Conn).Write(response)
 			default:
 				if cmd.IsWriteCommand() {
-					_ = command.ExecuteCommand(cmd, s)
+					_ = command.ExecuteCommand(cmd, client.Server.DataStore)
 				}
 			}
 

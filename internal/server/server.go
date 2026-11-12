@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
@@ -24,16 +25,16 @@ type Server struct {
 	dbfilename string
 }
 
-func NewServer(port int, dataStore *store.Store, role string, replicaof string) *Server {
-	var masterManager *MasterManager
-	var slaveManager *SlaveManager
+func NewServer(port int, role string, replicaof string) *Server {
+	var masterManager *MasterManager = nil
+	var slaveManager *SlaveManager = nil
 	if role == "master" {
 		masterManager = NewMasterManager()
-		slaveManager = nil
 	} else {
 		slaveManager = NewSlaveManager(replicaof)
-		masterManager = nil
 	}
+
+	dataStore := store.NewStore()
 
 	return &Server{
 		Port:               port,
@@ -47,7 +48,7 @@ func NewServer(port int, dataStore *store.Store, role string, replicaof string) 
 //************* Main Function. Accepts Client Connections ****************
 // implemented for Master and Slave.
 
-func Start(port int, addr string, dataStore *store.Store, flags []string) {
+func Start(addr string, flags []string) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
@@ -56,14 +57,15 @@ func Start(port int, addr string, dataStore *store.Store, flags []string) {
 	fmt.Printf("Server listening on, %v\n", lis.Addr())
 
 	var role string
-	replicaof, dir, dbfilename := flags[0], flags[1], flags[2]
+	portStr, replicaof, dir, dbfilename := flags[0], flags[1], flags[2], flags[3]
 	if replicaof != "" {
 		role = "slave"
 	} else {
 		role = "master"
 	}
 
-	server := NewServer(port, dataStore, role, replicaof)
+	port, _ := strconv.Atoi(portStr)
+	server := NewServer(int(port), role, replicaof)
 	server.dir = dir
 	server.dbfilename = dbfilename
 
@@ -89,7 +91,7 @@ func Start(port int, addr string, dataStore *store.Store, flags []string) {
 
 		// Start handling commands from master to replicate the data.
 		// This is a blocking call and will run in the background for the lifetime of the slave server.
-		go HandleMasterConn(server.GetSlaveMaster(), dataStore)
+		go HandleMasterConn(server.GetSlaveMaster())
 	}
 
 	// Run for both master and slave servers to accept connections from clients.
@@ -104,7 +106,7 @@ func Start(port int, addr string, dataStore *store.Store, flags []string) {
 
 		client := NewClient(conn, server)
 
-		go HandleClientConn(client, dataStore)
+		go HandleClientConn(client)
 	}
 }
 

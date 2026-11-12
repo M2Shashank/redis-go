@@ -3,36 +3,35 @@ package server
 import (
 	"github.com/codecrafters-io/redis-starter-go/internal/command"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
-	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
 // ------ Transaction Commands Implementation -------
 // ---- ( MULTI, EXEC, WATCH, DISCARD, UNWATCH ) ----
 // implemented in server bacause they need access to Client struct fields and methods
 
-func (c *Client) TransactionHandler(cmd *resp.Command, s *store.Store) resp.RESPType {
+func (client *Client) TransactionHandler(cmd *resp.Command) resp.RESPType {
 	switch cmd.Com {
 	case "WATCH":
-		return c.HandleWatch(cmd, s)
+		return client.HandleWatch(cmd)
 	case "UNWATCH":
-		return c.HandleUnwatch()
+		return client.HandleUnwatch()
 	case "MULTI":
-		return c.HandleMulti()
+		return client.HandleMulti()
 	case "EXEC":
-		return c.HandleExec(s)
+		return client.HandleExec()
 	case "DISCARD":
-		return c.HandleDiscard()
+		return client.HandleDiscard()
 	}
 	return resp.SimpleError("ERR unknown command")
 }
 
-func (c *Client) HandleWatch(cmd *resp.Command, s *store.Store) resp.RESPType {
+func (c *Client) HandleWatch(cmd *resp.Command) resp.RESPType {
 	if c.inTransaction {
 		return resp.SimpleError("ERR WATCH inside MULTI is not allowed")
 	}
 
 	for _, key := range cmd.Args {
-		c.setWatchKey(key, s)
+		c.setWatchKey(key)
 	}
 	return resp.SimpleString("OK")
 }
@@ -51,12 +50,12 @@ func (c *Client) HandleMulti() resp.RESPType {
 	return resp.SimpleString("OK")
 }
 
-func (c *Client) HandleExec(s *store.Store) resp.RESPType {
+func (c *Client) HandleExec() resp.RESPType {
 	if !c.inTransaction {
 		return resp.SimpleError("ERR EXEC without MULTI")
 	}
 
-	if !c.isValidTransaction(s) {
+	if !c.isValidTransaction() {
 		c.clearTransactionState()
 		return resp.Array(nil)
 	}
@@ -64,7 +63,7 @@ func (c *Client) HandleExec(s *store.Store) resp.RESPType {
 	var results resp.Array = make([]resp.RESPType, 0, c.queuedCmds.Size())
 	for !c.queuedCmds.Empty() {
 		topCmd := c.queuedCmds.Pop()
-		result := command.ExecuteCommand(topCmd, s)
+		result := command.ExecuteCommand(topCmd, c.Server.DataStore)
 		results = append(results, result)
 	}
 	c.clearTransactionState()
