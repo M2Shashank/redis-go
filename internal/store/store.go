@@ -63,7 +63,7 @@ func (s *Store) LoadFromRDBFile(dir string, dbfilename string) {
 	}
 	fmt.Println("Read ", len(data), " bytes from RDB file: ", addr)
 
-	result := RDB_Parser.ParseRDBFile(data)
+	result := RDB_Parser.ParseRDBFile(&data)
 
 	for key, valueType := range result {
 		_, value, expireTime := valueType.Type, valueType.Value, valueType.ExpireTimeMS
