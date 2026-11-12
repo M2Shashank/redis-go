@@ -43,7 +43,10 @@ func ReadAuxiliaryFields(data []byte) map[string]string {
 	data = data[1:] // remove 0xFA
 
 	AuxFields := make(map[string]string)
-	for len(data) > 0 && (data[0] != EOF || data[0] != SELECTDB) {
+	for len(data) > 0 {
+		if (data[0] == EOF || data[0] == SELECTDB) {
+			break
+		}
 		// Process each key-value pair in the auxiliary fields section
 		key := ExtractString(data)
 		value := ExtractString(data)
