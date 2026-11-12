@@ -15,9 +15,9 @@ const EOF byte = 0xFF
 type ValueType struct {
 	// Only handling string type for now.
 	// For String , type = 0
-	Type       byte
+	Type         byte
 	ExpireTimeMS uint64
-	Value      []byte
+	Value        []byte
 }
 
 // value is string for now. Might have to change it to a struct later
@@ -36,17 +36,14 @@ func ParseRDBFile(data *[]byte) map[string]*ValueType {
 }
 
 func ReadAuxiliaryFields(data *[]byte) map[string]string {
-	if len(*data) < 1 || (*data)[0] != AUX {
-		fmt.Println("No Auxiliary Fields/Metadata found: expected 0xFA, got ", (*data)[0])
-		return nil
-	}
-	*data = (*data)[1:] // remove 0xFA
-
 	AuxFields := make(map[string]string)
+
 	for len(*data) > 0 {
-		if ((*data)[0] == EOF || (*data)[0] == SELECTDB) {
+		if (*data)[0] != AUX {
 			break
 		}
+		*data = (*data)[1:] // remove 0xFA
+
 		// Process each key-value pair in the auxiliary fields section
 		key := ExtractString(data)
 		value := ExtractString(data)
@@ -63,7 +60,7 @@ func ReadDataBaseSection(data *[]byte) map[string]*ValueType {
 		fmt.Println("No database section found: expected 0xFE, got ", (*data)[0])
 		return nil
 	}
-	_ = (*data)[1]     // database number / index of database . 0 Here
+	_ = (*data)[1]      // database number / index of database . 0 Here
 	*data = (*data)[2:] // remove 0xFE
 
 	if len(*data) < 3 || (*data)[0] != RESIZEDB {
@@ -87,8 +84,8 @@ func ReadDataBaseSection(data *[]byte) map[string]*ValueType {
 func ExtractKeyValuePair(data *[]byte) (string, *ValueType) {
 	var value ValueType = ValueType{
 		ExpireTimeMS: 0,
-		Type:       0,
-		Value:      nil,
+		Type:         0,
+		Value:        nil,
 	}
 	if (*data)[0] == EXPIRETIMEMS {
 		value.ExpireTimeMS = binary.LittleEndian.Uint64((*data)[1:9])
@@ -117,11 +114,6 @@ func ReadFooterSection(data *[]byte) int {
 
 	return checkSum
 }
-
-
-
-
-
 
 func ExtractLength(data *[]byte) (int, bool) {
 	// Length Encoding:
