@@ -106,42 +106,7 @@ func Start(addr string, flags []string) {
 
 		client := NewClient(conn, server)
 
-		go HandleClientConn(client)
-	}
-}
-
-func (s *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
-	switch cmd.Com {
-	case "INFO":
-		return InfoHandler(s)
-	case "REPLCONF":
-		return s.ReplconfHandler(cmd, nil)
-	case "CONFIG":
-		if len(cmd.Args) != 2 {
-			return resp.SimpleError("ERR wrong number of arguments for 'CONFIG' command")
-		}
-
-		var typeOf string = cmd.Args[0]
-		if typeOf != "GET" {
-			return resp.SimpleError("ERR unknown subcommand '" + typeOf + "' for 'CONFIG' command")
-		}
-
-		var result resp.RESPType
-		if cmd.Args[1] == "dir" {
-			result = resp.Array([]resp.RESPType{
-				resp.BulkString(cmd.Args[1]),
-				resp.BulkString(s.dir),
-			})
-		} else if cmd.Args[1] == "dbfilename" {
-			result = resp.Array([]resp.RESPType{
-				resp.BulkString(cmd.Args[1]),
-				resp.BulkString(s.dbfilename),
-			})
-		}
-		return result
-
-	default:
-		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
+		go HandleConn(client)
 	}
 }
 

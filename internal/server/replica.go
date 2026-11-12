@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/codecrafters-io/redis-starter-go/internal/command"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
 
@@ -91,48 +90,6 @@ func (s *Server) InitiateHandshake() error {
 	return nil
 }
 
-// used by slave to handle commands from master
-// Commands from clients to slave are handled in HandleConn function, which takes care of sending responses back
-// reading for commands from master and executing them on slave. No response is sent back to master for these commands.
-// reading and writing commands to master from slave -> handleMasterConn function
-// reading and writing commands to slave from master -> handleConn function
-func HandleMasterConn(client *Client) {
-	defer (client.Conn).Close()
-	var buff []byte = make([]byte, 1024)
-	var readBuffer []byte
-
-	for {
-		n, err := (client.Conn).Read(buff)
-		if err != nil {
-			fmt.Println("Error reading from connection: ", err.Error())
-			break
-		}
-		fmt.Printf("Read %d bytes from connection: %s\n", n, string(buff[:n]))
-		readBuffer = append(readBuffer, buff[:n]...)
-
-		for {
-			n, cmd := resp.ParseRESPCommand(readBuffer)
-			if cmd == nil || n == 0 {
-				break
-			}
-			readBuffer = readBuffer[n:]
-
-			switch cmd.Com {
-			case "REPLCONF": // getack
-				// scmd sent by master to get ack from slave
-				result := client.Server.ReplconfHandler(cmd, nil)
-				response := resp.Encode(result)
-				(client.Conn).Write(response)
-			default:
-				if cmd.IsWriteCommand() {
-					_ = command.ExecuteCommand(cmd, client.Server.DataStore)
-				}
-			}
-
-			client.Server.IncreamentOffset(n)
-		}
-	}
-}
 
 
 // ------------------- helper methods for replication 
