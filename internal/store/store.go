@@ -68,13 +68,21 @@ func (s *Store) LoadFromRDBFile(dir string, dbfilename string) {
 	for key, valueType := range result {
 		_, value, expireTime := valueType.Type, valueType.Value, valueType.ExpireTimeMS
 
-		s.Set(key, string(value))
-		if expireTime > 0 {
-			go func() {
-				time.Sleep(time.Duration(expireTime) * time.Millisecond)
-				s.Delete(key)
-			}()
+		if expireTime == 0 {
+			s.Set(key, string(value))
+			continue
 		}
+
+		remaining := int64(expireTime) - time.Now().UnixMilli()
+		if remaining <= 0 {
+			continue
+		}
+
+		s.Set(key, string(value))
+		go func() {
+			time.Sleep(time.Duration(remaining) * time.Millisecond)
+			s.Delete(key)
+		}()
 	}
 }
 
