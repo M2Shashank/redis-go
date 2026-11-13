@@ -21,18 +21,18 @@ type Server struct {
 	MasterManager *MasterManager
 	SlaveManager  *SlaveManager
 
-	//? persistence related fields. Used by both
+	// Persistence Manager, Persistence related fields
 	Persistence *persistence.Manager
 }
 
 func NewServer(flags []string) *Server {
-	portStr, replicaof, dir, dbfilename := flags[0], flags[1], flags[2], flags[3]
+	portStr, replicaof := flags[0], flags[1]
 	port, _ := strconv.Atoi(portStr)
 	var role string = "master"
 	if replicaof != "" {
 		role = "slave"
 	}
-	var manager *persistence.Manager = persistence.NewPersistenceManager(dir, dbfilename)
+	var manager *persistence.Manager = persistence.NewPersistenceManager(flags[2:])
 
 	var masterManager *MasterManager = nil
 	var slaveManager *SlaveManager = nil
@@ -43,7 +43,7 @@ func NewServer(flags []string) *Server {
 	}
 
 	dataStore := store.NewStore()
-	dataStore.LoadFromRDBFile(dir, dbfilename) // Load data from RDB file if it exists. If not, start with an empty store.
+	dataStore.LoadFromRDBFile(flags[2], flags[3]) // Load data from RDB file if it exists. If not, start with an empty store.
 
 	return &Server{
 		Port:               port,

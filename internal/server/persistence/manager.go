@@ -7,12 +7,20 @@ import (
 type Manager struct {
 	dir        string
 	dbfilename string
+	appendonly   string
+	appenddirname string
+	appendfilename string
+	appendfsync  string
 }
 
-func NewPersistenceManager(dir string, dbfilename string) *Manager {
+func NewPersistenceManager(flags []string) *Manager {
 	return &Manager{
-		dir:        dir,
-		dbfilename: dbfilename,
+		dir:        flags[0],
+		dbfilename: flags[1],
+		appendonly:   flags[2],
+		appenddirname: flags[3],
+		appendfilename: flags[4],
+		appendfsync:  flags[5],
 	}
 }
 
@@ -38,13 +46,13 @@ func (m *Manager) PersistanceHandler(cmd *resp.Command) resp.RESPType {
 		case "dbfilename":
 			temp = append(temp, m.dbfilename)
 		case "appendonly":
-			temp = append(temp, "no")
+			temp = append(temp, m.appendonly)
 		case "appenddirname":
-			temp = append(temp, "appendonlydir")
+			temp = append(temp, m.appenddirname)
 		case "appendfilename":
-			temp = append(temp, "appendonly.aof")
+			temp = append(temp, m.appendfilename)
 		case "appendfsync":
-			temp = append(temp, "everysec")
+			temp = append(temp, m.appendfsync)
 		}
 
 		result = resp.ArrayToBulkRESP(temp)
