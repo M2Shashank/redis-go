@@ -30,17 +30,24 @@ func (m *Manager) PersistanceHandler(cmd *resp.Command) resp.RESPType {
 			return resp.SimpleError("ERR unknown subcommand '" + typeOf + "' for 'CONFIG' command")
 		}
 
-		if cmd.Args[1] == "dir" {
-			result = resp.Array([]resp.RESPType{
-				resp.BulkString(cmd.Args[1]),
-				resp.BulkString(m.dir),
-			})
-		} else if cmd.Args[1] == "dbfilename" {
-			result = resp.Array([]resp.RESPType{
-				resp.BulkString(cmd.Args[1]),
-				resp.BulkString(m.dbfilename),
-			})
+		var temp []string = []string{cmd.Args[1]}
+
+		switch cmd.Args[1] {
+		case "dir":
+			temp = append(temp, m.dir)
+		case "dbfilename":
+			temp = append(temp, m.dbfilename)
+		case "appendonly":
+			temp = append(temp, "no")
+		case "appenddirname":
+			temp = append(temp, "appendonlydir")
+		case "appendfilename":
+			temp = append(temp, "appendonly.aof")
+		case "appendfsync":
+			temp = append(temp, "everysec")
 		}
+
+		result = resp.ArrayToBulkRESP(temp)
 
 	default:
 		result = resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
