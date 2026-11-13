@@ -10,6 +10,7 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 	persistence "github.com/codecrafters-io/redis-starter-go/internal/server/persistence"
+	rdb_parser "github.com/codecrafters-io/redis-starter-go/internal/resp/rdb_parser"
 )
 
 type Server struct {
@@ -43,7 +44,10 @@ func NewServer(flags []string) *Server {
 	}
 
 	dataStore := store.NewStore()
-	dataStore.LoadFromRDBFile(flags[2], flags[3]) // Load data from RDB file if it exists. If not, start with an empty store.
+	// Load data from RDB file if it exists. If not, start with an empty store.
+	var rdbFile []byte = manager.Rdb.Data
+	data := rdb_parser.ParseRDBFile(&rdbFile)
+	dataStore.LoadRDBIntoStore(data) 
 
 	return &Server{
 		Port:               port,

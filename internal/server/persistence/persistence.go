@@ -2,41 +2,46 @@ package persistence
 
 import (
 	"path/filepath"
-	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
 
 type Manager struct {
-	dir            string
-	dbfilename     string
-	appendonly     string
-	appenddirname  string
-	appendfilename string
-	appendfsync    string
+	Dir            string
+	Dbfilename     string
+	Appendonly     string
+	Appenddirname  string
+	Appendfilename string
+	Appendfsync    string
 
-	AOF *AOFHandler
+	Rdb *RDBManager
+	Aof *AOFManager
 }
 
 func NewPersistenceManager(flags []string) *Manager {
-	var aofHandler *AOFHandler = nil
-	if flags[2] == "yes" {
-		// create a new appendonly directory if it doesn't exist
-		appendonlyDir := filepath.Join(flags[0], flags[3])
-		filename := strings.TrimSuffix(flags[4], ".aof") + ".1.incr.aof"
+	dir, dbfilename, appendonly, appenddirname, appendfilename, appendfsync := flags[0], flags[1], flags[2], flags[3], flags[4], flags[5]
 
-		aofHandler = NewAOFHandler(appendonlyDir, filename)
+	var aof *AOFManager = nil
+	if appendonly == "yes" {
+		// create a new appendonly directory if it doesn't exist
+		appendonlyDir := filepath.Join(dir, appenddirname)
+		filename := filepath.Join(appendfilename, ".1.incr.aof")
+
+		aof = NewAOFManager(appendonlyDir, filename)
 	}
 
-	return &Manager{
-		dir:            flags[0],
-		dbfilename:     flags[1],
-		appendonly:     flags[2],
-		appenddirname:  flags[3],
-		appendfilename: flags[4],
-		appendfsync:    flags[5],
+	var rdb *RDBManager = NewRDBManager(dir, dbfilename)
 
-		AOF: aofHandler,
+	return &Manager{
+		Dir:            dir,
+		Dbfilename:     dbfilename,
+		Appendonly:     appendonly,
+		Appenddirname:  appenddirname,
+		Appendfilename: appendfilename,
+		Appendfsync:    appendfsync,
+
+		Aof: aof,
+		Rdb: rdb,
 	}
 }
 
@@ -58,17 +63,17 @@ func (m *Manager) PersistanceHandler(cmd *resp.Command) resp.RESPType {
 
 		switch cmd.Args[1] {
 		case "dir":
-			temp = append(temp, m.dir)
+			temp = append(temp, m.Dir)
 		case "dbfilename":
-			temp = append(temp, m.dbfilename)
+			temp = append(temp, m.Dbfilename)
 		case "appendonly":
-			temp = append(temp, m.appendonly)
+			temp = append(temp, m.Appendonly)
 		case "appenddirname":
-			temp = append(temp, m.appenddirname)
+			temp = append(temp, m.Appenddirname)
 		case "appendfilename":
-			temp = append(temp, m.appendfilename)
+			temp = append(temp, m.Appendfilename)
 		case "appendfsync":
-			temp = append(temp, m.appendfsync)
+			temp = append(temp, m.Appendfsync)
 		}
 
 		result = resp.ArrayToBulkRESP(temp)

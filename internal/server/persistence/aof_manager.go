@@ -6,20 +6,17 @@ import (
 	"path/filepath"
 )
 
-type AOFHandler struct {
+type AOFManager struct {
 	File *os.File
-	DirName, FileName string
 	AOFAddr string
 }
 
-func NewAOFHandler(dirName string, fileName string) *AOFHandler {
-	aofAddr := filepath.Join(dirName, fileName)
-	file := CreateAppendOnlyFile(dirName, fileName)
+func NewAOFManager(directory string, fileName string) *AOFManager {
+	aofAddr := filepath.Join(directory, fileName)
+	file := CreateAppendOnlyFile(directory, fileName)
 
-	return &AOFHandler{
+	return &AOFManager{
 		File: file,
-		DirName: dirName,
-		FileName: fileName,
 		AOFAddr: aofAddr,
 	}
 }
