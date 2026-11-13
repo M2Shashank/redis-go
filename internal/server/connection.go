@@ -35,12 +35,13 @@ func HandleConn(client *Client) {
 			var result resp.RESPType
 			result = client.ExecuteCommand(cmd)
 
-			if client.Server.Role == "master" && result.Type() != "SimpleError" && cmd.Com != "PING" && cmd.Com != "REPLCONF" && cmd.Com != "PSYNC" && cmd.Com != "INFO" && cmd.Com != "WAIT" {
-				client.Server.MasterManager.hasPendingWrites = true
-				client.Server.WriteCommandToSlaves(rawCommand)
+			// If the command is a write command and the server is a master, send it to the replicas
+			if client.Server.Role == "master" && result.Type() != "SimpleError" {
+				client.Server.syncReplicasOfWrite(rawCommand, cmd.Com)
 			}
 
 			if cmd.Com == "REPLCONF" && cmd.Args[0] == "ACK" {
+				// Dont write back to slave
 				continue
 			}
 
@@ -67,9 +68,11 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 	switch cmd.Com {
 
 	case "PSYNC", "WAIT":
-		// master implements these commands.
+		// PSYNC sent by slave, WAIT sent by client. 
+		// Both sent to master. .: Handled by MasterCommandHandler
 		result = client.MasterCommandHandler(cmd)
 	case "INFO", "REPLCONF":
+		// INFO sent by client. REPLCONF - getack sent by master, remaining sent by slave.
 		// Server Related Commands. Both master and slave
 		result = client.ServerCommandHandler(cmd)
 	case "CONFIG":

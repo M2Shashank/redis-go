@@ -9,8 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
 
 // ----------------------------------- helper structs
@@ -56,6 +54,7 @@ type SlaveManager struct {
 	master_host string // host of the master server used by slave
 	master_port int    // port of the master server used by slave
 }
+
 // ------------------------------------................
 
 // --------------------------- Object Factory functions
@@ -108,13 +107,13 @@ func (s *SlaveManager) Info() map[string]string {
 
 //! Slave Manager methods
 
-func (s *SlaveManager) HandleGETACK() resp.RESPType {
+func (s *SlaveManager) HandleGETACK() []string {
 	var offset int64 = s.repl_offset
-	result := resp.Array([]resp.RESPType{
-		resp.BulkString("REPLCONF"),
-		resp.BulkString("ACK"),
-		resp.BulkString(strconv.FormatInt(offset, 10)),
-	})
+	result := []string{
+		"REPLCONF",
+		"ACK",
+		strconv.FormatInt(offset, 10),
+	}
 	return result
 }
 
@@ -167,6 +166,7 @@ func (s *SlaveManager) SetPSYNCFields(FULLRESYNCFields []string) {
 
 //! Master Manager mathods
 
+// synchronous for now
 func (m *MasterManager) WriteCommandToReplicas(rawCommand []byte) {
 	m.ReplicasMutex.RLock()
 	defer m.ReplicasMutex.RUnlock()
@@ -202,12 +202,13 @@ func (m *MasterManager) AddSlave(client *Client) {
 	}
 }
 
-func (m *MasterManager) HandlePSYNC() resp.RESPType {
-	return resp.Array([]resp.RESPType{
-		resp.BulkString("FULLRESYNC"),
-		resp.BulkString(m.master_replid),
-		resp.BulkString(strconv.FormatInt(m.master_repl_offset, 10)),
-	})
+func (m *MasterManager) HandlePSYNC() []string {
+	var result []string = []string{
+		"FULLRESYNC",
+		m.master_replid,
+		strconv.FormatInt(m.master_repl_offset, 10),
+	}
+	return result
 }
 
 func (m *MasterManager) HandleACK(offsetStr string, client *Client) {
@@ -218,7 +219,7 @@ func (m *MasterManager) HandleACK(offsetStr string, client *Client) {
 	}
 }
 
-func (m *MasterManager) HandleWait(numSlaves int, timeLimit int) int {
+func (m *MasterManager) HandleWait(numSlaves int, timeLimit int, rawCommand []byte) int {
 	if m.hasPendingWrites == false {
 		return len(m.Replicas)
 	}
@@ -226,12 +227,6 @@ func (m *MasterManager) HandleWait(numSlaves int, timeLimit int) int {
 	// drain channel to remove any acks from previous WAIT commands
 	m.DrainAckChannel()
 
-	ReplConfGetackCmd := &resp.Command{
-		Com:  "REPLCONF",
-		Args: []string{"GETACK", "*"},
-	}
-	temp := resp.CommandToRESP(ReplConfGetackCmd)
-	rawCommand := resp.Encode(temp)
 	m.WriteCommandToReplicas(rawCommand)
 
 	var numValidAcks int = 0

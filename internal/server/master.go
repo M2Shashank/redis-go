@@ -4,16 +4,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"strconv"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
 
 var emptyRDBFileHex string = "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2"
-
-func (s *Server) HandleWait(numSlaves int, timeLimit int) resp.RESPType {
-	var result int = s.MasterManager.HandleWait(numSlaves, timeLimit)
-	return resp.Integer(result)
-}
 
 func (s *Server) AddSlave(client *Client) {
 	s.MasterManager.AddSlave(client)
@@ -26,19 +22,12 @@ func (s *Server) SendRDBFile(client *Client) {
 	(client.Conn).Write(rdbFile)
 }
 
-func (s *Server) GetMasterAckChannel() *chan *ChannelItem {
-	return &s.MasterManager.AckChannel
+func (s *Server) syncReplicasOfWrite(rawCommand []byte, com string) {
+	if com != "PING" && com != "REPLCONF" && com != "PSYNC" && com != "INFO" && com != "WAIT" {
+		s.MasterManager.hasPendingWrites = true
+		s.MasterManager.WriteCommandToReplicas(rawCommand)
+	}
 }
-
-func (s *Server) DrainAckChannel() {
-	s.MasterManager.DrainAckChannel()
-}
-
-// Synchronous for now
-func (s *Server) WriteCommandToSlaves(rawCommand []byte) {
-	s.MasterManager.WriteCommandToReplicas(rawCommand)
-}
-
 
 // Replconf commands include:
 // * 1. REPLCONF GETACK * --> Sent my master to get acknowledgement of the offset of a slave
@@ -66,5 +55,47 @@ func (s *Server) MasterReplconfHandler(cmd *resp.Command, client *Client) resp.R
 
 	}
 
+	return result
+}
+
+
+// Master Commands Handler
+
+func (server *Server) MasterCommandHandler(cmd *resp.Command) resp.RESPType {
+	if server.Role != "master" {
+		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
+	}
+
+	var result resp.RESPType
+	switch cmd.Com {
+
+	case "PSYNC":
+		temp := server.MasterManager.HandlePSYNC()
+		result = resp.ArrayToBulkRESP(temp)
+
+	case "WAIT":
+		if len(cmd.Args) != 2 {
+			return resp.SimpleError("ERR wrong number of arguments for 'WAIT' command")
+		}
+		numSlaves, err1 := strconv.Atoi(cmd.Args[0])
+		timeLimit, err2 := strconv.Atoi(cmd.Args[1])
+		if err1 != nil || err2 != nil {
+			return resp.SimpleError("ERR invalid arguments for 'WAIT' command")
+		}
+
+		ReplConfGetackCmd := &resp.Command{
+			Com:  "REPLCONF",
+			Args: []string{"GETACK", "*"},
+		}
+		temp := resp.CommandToRESP(ReplConfGetackCmd)
+		rawCommand := resp.Encode(temp)
+
+		var noOfValidAcks int = server.MasterManager.HandleWait(numSlaves, timeLimit, rawCommand)
+		result = resp.Integer(noOfValidAcks)
+
+	default:
+		result = resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
+
+	}
 	return result
 }

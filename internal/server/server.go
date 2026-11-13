@@ -109,6 +109,18 @@ func Start(addr string, flags []string) {
 	}
 }
 
+func (server *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
+	switch cmd.Com {
+	case "INFO":
+		return InfoHandler(server)
+	case "REPLCONF":
+		return server.ReplconfHandler(cmd, nil)
+
+	default:
+		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
+	}
+}
+
 // ******************************************************************
 
 // Both HandleConn and HandleMasterConn use this function to handle REPLCONF. Handle all REPLCONF commands here

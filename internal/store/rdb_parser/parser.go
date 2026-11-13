@@ -87,12 +87,13 @@ func ExtractKeyValuePair(data *[]byte) (string, *ValueType) {
 		Type:         0,
 		Value:        nil,
 	}
-	if (*data)[0] == EXPIRETIMEMS {
+	switch (*data)[0] {
+	case EXPIRETIMEMS:
 		value.ExpireTimeMS = binary.LittleEndian.Uint64((*data)[1:9])
-		*data = (*data)[9:]
-	} else if (*data)[0] == EXPIRETIME {
+		*data = (*data)[9:] // remove 0xFC and expire time bytes
+	case EXPIRETIME:
 		value.ExpireTimeMS = uint64(1000 * binary.LittleEndian.Uint32((*data)[1:5]))
-		*data = (*data)[5:]
+		*data = (*data)[5:] // remove 0xFD and expire time bytes
 	}
 	value.Type = (*data)[0]
 	*data = (*data)[1:] // remove type byte
@@ -132,7 +133,7 @@ func ExtractLength(data *[]byte) (int, bool) {
 		length = int((*data)[0] & 0b00111111)
 		*data = (*data)[1:] // remove length byte
 	case 0b01000000: // 14 bit length
-		length = int(((*data)[0]&0b00111111)<<8) | int((*data)[1])
+		length = (int((*data)[0]&0b00111111) << 8) | int((*data)[1])
 		*data = (*data)[2:] // remove length bytes
 	case 0b10000000: // 32 bit length
 		length = int(binary.BigEndian.Uint32((*data)[1:5]))
@@ -168,16 +169,17 @@ func ExtractString(data *[]byte) string {
 	} else {
 		// Special Encoding, String is a Integer.
 		var integer int
-		if len == 0 {
+		switch len {
+		case 0:
 			integer = int(int8((*data)[0]))
 			*data = (*data)[1:] // remove integer byte
-		} else if len == 1 {
+		case 1:
 			integer = int(int16(binary.LittleEndian.Uint16((*data)[0:2])))
 			*data = (*data)[2:] // remove integer bytes
-		} else if len == 2 {
+		case 2:
 			integer = int(int32(binary.LittleEndian.Uint32((*data)[0:4])))
 			*data = (*data)[4:] // remove integer bytes
-		} else {
+		case 3:
 			// len == 3
 			// LZF compressed string. Not handled for now.
 		}

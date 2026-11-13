@@ -67,7 +67,7 @@ func (s *Server) InitiateHandshake() error {
 	resp, err := s.SendAndCheckCommandToMaster(psyncCmd, "+FULLRESYNC")
 	if err != nil {
 		return err
-	}	
+	}
 
 	FULLRESYNCFields := strings.Fields(resp)
 	s.SlaveManager.SetPSYNCFields(FULLRESYNCFields)
@@ -90,15 +90,13 @@ func (s *Server) InitiateHandshake() error {
 	return nil
 }
 
-
-
-// ------------------- helper methods for replication 
+// ------------------- helper methods for replication
 
 func (s *Server) IncreamentOffset(n int) {
 	s.SlaveManager.IncrementOffset(int64(n))
 }
 
-// -------------------------- Handshake helpers 
+// -------------------------- Handshake helpers
 
 func (s *Server) SendAndCheckCommandToMaster(cmd *resp.Command, expectedResponse string) (string, error) {
 	err := s.writeCommandToMaster(cmd)
@@ -137,10 +135,7 @@ func (s *Server) GetSlaveMaster() *Client {
 	return s.SlaveManager.Master
 }
 
-
 // ------------------------------------------
-
-
 
 // Replconf commands include:
 // * 1. REPLCONF GETACK * --> Sent my master to get acknowledgement of the offset of a slave
@@ -159,7 +154,8 @@ func (s *Server) SlaveReplconfHandler(cmd *resp.Command, client *Client) resp.RE
 
 	case "GETACK": // sent by master
 		// slave handles the GETACK command and sends the current offset of the slave to the master.
-		result = s.SlaveManager.HandleGETACK()
+		temp := s.SlaveManager.HandleGETACK()
+		result = resp.ArrayToBulkRESP(temp)
 		// returned result to HandleMasterConn function
 
 	default:
