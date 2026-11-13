@@ -1,6 +1,8 @@
 package persistence
 
 import (
+	"path/filepath"
+
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
 
@@ -14,6 +16,13 @@ type Manager struct {
 }
 
 func NewPersistenceManager(flags []string) *Manager {
+	if flags[2] == "yes" {
+		// create a new appendonly directory if it doesn't exist
+		appendonlyDir := filepath.Join(flags[0], flags[3])
+		CreateAppendOnlyDir(appendonlyDir)
+
+	}
+
 	return &Manager{
 		dir:        flags[0],
 		dbfilename: flags[1],
