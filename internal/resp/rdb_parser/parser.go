@@ -25,6 +25,11 @@ type ValueType struct {
 
 // value is string for now. Might have to change it to a struct later
 func ParseRDBFile(data *[]byte) map[string][]byte {
+	if len(*data) < 9 {
+		fmt.Println("Error: RDB file not Found")
+		return nil
+	}
+
 	var headerSection []byte = (*data)[0:9]
 	fmt.Println("RDB Header: ", string(headerSection))
 	*data = (*data)[9:] // remove header section
