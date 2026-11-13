@@ -25,9 +25,8 @@ func NewPersistenceManager(flags []string) *Manager {
 	if appendonly == "yes" {
 		// create a new appendonly directory if it doesn't exist
 		appendonlyDir := filepath.Join(dir, appenddirname)
-		filename := appendfilename + ".1.incr.aof"
 
-		aof = NewAOFManager(appendonlyDir, filename)
+		aof = NewAOFManager(appendonlyDir, appendfilename)
 	}
 
 	var rdb *RDBManager = NewRDBManager(dir, dbfilename)
