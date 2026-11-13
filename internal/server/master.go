@@ -3,8 +3,8 @@ package server
 import (
 	"encoding/hex"
 	"fmt"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
@@ -58,7 +58,6 @@ func (s *Server) MasterReplconfHandler(cmd *resp.Command, client *Client) resp.R
 	return result
 }
 
-
 // Master Commands Handler
 
 func (server *Server) MasterCommandHandler(cmd *resp.Command) resp.RESPType {
@@ -71,7 +70,7 @@ func (server *Server) MasterCommandHandler(cmd *resp.Command) resp.RESPType {
 
 	case "PSYNC":
 		temp := server.MasterManager.HandlePSYNC()
-		result = resp.ArrayToBulkRESP(temp)
+		result = resp.SimpleString(temp)
 
 	case "WAIT":
 		if len(cmd.Args) != 2 {

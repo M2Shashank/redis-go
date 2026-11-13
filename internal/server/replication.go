@@ -202,12 +202,8 @@ func (m *MasterManager) AddSlave(client *Client) {
 	}
 }
 
-func (m *MasterManager) HandlePSYNC() []string {
-	var result []string = []string{
-		"FULLRESYNC",
-		m.master_replid,
-		strconv.FormatInt(m.master_repl_offset, 10),
-	}
+func (m *MasterManager) HandlePSYNC() string {
+	result := fmt.Sprintf("FULLRESYNC %s %d", m.master_replid, m.master_repl_offset)
 	return result
 }
 
