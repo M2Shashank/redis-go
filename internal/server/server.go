@@ -170,3 +170,7 @@ func InfoHandler(server *Server) resp.RESPType {
 	}
 	return resp.BulkString(info.String())
 }
+
+func (s *Server) FlushCmdToAOF(cmd []byte) {
+	s.Persistence.FlushWriteCommandToAOF(cmd)
+}

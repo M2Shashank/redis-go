@@ -32,8 +32,8 @@ func HandleConn(client *Client) {
 			var rawCommand []byte = readBuffer[:n]
 			readBuffer = readBuffer[n:]
 
-			var result resp.RESPType
-			result = client.ExecuteCommand(cmd)
+			var result resp.RESPType = client.ExecuteCommand(cmd)
+			var response []byte = resp.Encode(result)
 
 			// If the command is a write command and the server is a master, send it to the replicas
 			if client.Server.Role == "master" && result.Type() != "SimpleError" {
@@ -45,7 +45,10 @@ func HandleConn(client *Client) {
 				continue
 			}
 
-			response := resp.Encode(result)
+			if result.Type() != "SimpleError" && cmd.IsWriteCommand() {
+				client.Server.FlushCmdToAOF(rawCommand)
+			}
+			
 			(client.Conn).Write(response)
 
 			// routeCommand for PSYNC acknowledges repl_id and offset. Now the RDB file is sent
@@ -90,6 +93,8 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 		}
 
 	}
+
+
 
 	return result
 }

@@ -83,3 +83,11 @@ func (m *Manager) PersistanceHandler(cmd *resp.Command) resp.RESPType {
 	}
 	return result
 }
+
+func (m *Manager) FlushWriteCommandToAOF(cmd []byte) {
+	if m.Aof == nil {
+		return
+	}
+
+	m.Aof.WriteCommand(cmd, m.Appendfsync)
+}
