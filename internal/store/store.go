@@ -3,7 +3,8 @@ package store
 import (
 	"sync"
 	"time"
-	"encoding/binary"
+
+	rdb_parser "github.com/codecrafters-io/redis-starter-go/internal/store/rdb_parser"
 )
 
 type Store struct {
@@ -50,10 +51,11 @@ func (s *Store) TypeOf(key string) string {
 	}
 }
 
-func (s *Store) LoadRDBIntoStore(data map[string][]byte) {
+func (s *Store) LoadRDBIntoStore(rdbFile []byte) {
+	data := rdb_parser.ParseRDBFile(&rdbFile)
+
 	for key, valueType := range data {
-		_, expireSlice, value := valueType[0], valueType[1:5], valueType[5:]
-		expireTime := int64(binary.BigEndian.Uint32(expireSlice))
+		_, expireTime, value := valueType.Type, valueType.ExpireTimeMS, valueType.Value
 
 		if expireTime == 0 {
 			s.Set(key, string(value))

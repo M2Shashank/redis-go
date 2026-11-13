@@ -12,9 +12,6 @@ const EXPIRETIME byte = 0xFD
 const SELECTDB byte = 0xFE
 const EOF byte = 0xFF
 
-// Dummy Struct to Dipict the stucture of the value inside the ParseRDBFile return type.
-// This type is not used to return values. Instead it is represented as byte slice. 
-// Where 1st bit is type, next 4 bytes are expire time and rest is value.
 type ValueType struct {
 	// Only handling string type for now.
 	// For String , type = 0
@@ -24,7 +21,7 @@ type ValueType struct {
 }
 
 // value is string for now. Might have to change it to a struct later
-func ParseRDBFile(data *[]byte) map[string][]byte {
+func ParseRDBFile(data *[]byte) map[string]*ValueType {
 	if len(*data) < 9 {
 		fmt.Println("Error: RDB file not Found")
 		return nil
@@ -63,7 +60,7 @@ func ReadAuxiliaryFields(data *[]byte) map[string]string {
 	return AuxFields
 }
 
-func ReadDataBaseSection(data *[]byte) map[string][]byte {
+func ReadDataBaseSection(data *[]byte) map[string]*ValueType {
 	if len(*data) < 2 || (*data)[0] != SELECTDB {
 		fmt.Println("No database section found: expected 0xFE, got ", (*data)[0])
 		return nil
@@ -78,18 +75,12 @@ func ReadDataBaseSection(data *[]byte) map[string][]byte {
 	noOfKeys, _ := int((*data)[1]), int((*data)[2])
 	*data = (*data)[3:] // remove 0xFB and the two length bytes
 
-	tempResult := make(map[string]*ValueType, 0)
+	result := make(map[string]*ValueType, 0)
 	for i := 0; i < noOfKeys; i++ {
 		if len(*data) > 1 {
 			key, value := ExtractKeyValuePair(data)
-			tempResult[key] = value
+			result[key] = value
 		}
-	}
-
-	result := make(map[string][]byte, 0)
-	for key, value := range tempResult {
-		result[key] = append([]byte{value.Type}, binary.BigEndian.AppendUint64(nil, value.ExpireTimeMS)...)
-		result[key] = append(result[key], value.Value...)
 	}
 
 	return result
