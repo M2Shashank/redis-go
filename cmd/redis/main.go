@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"path/filepath"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/server"
 )
@@ -18,7 +19,8 @@ func init() {
 
 	flag.StringVar(&replicaof, "replicaof", "", "Replicate from the specified master")
 
-	flag.StringVar(&dir, "dir", ".", "Directory to store the RDB file")
+	dir, _ = filepath.Abs(".")
+	flag.StringVar(&dir, "dir", dir, "Directory to store the RDB file")
 	flag.StringVar(&dbfilename, "dbfilename", "dump.rdb", "RDB file name")
 }
 
