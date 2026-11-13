@@ -113,12 +113,13 @@ func (aof *AOFManager) GetFileNameFromManifest() string {
 		return ""
 	}
 
+	var filename string = ""
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
 		parts := strings.Fields(line)
 		if len(parts) == 6 && parts[4] == "type" && parts[5] == "i" {
-			return parts[1] // Return the AOF file name
+			filename = parts[1] // Get latest AOF file name
 		}
 	}
-	return ""
+	return filename
 }
