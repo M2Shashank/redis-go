@@ -110,7 +110,6 @@ func HandleMasterConn(client *Client) {
 // Command Package's ExecuteCommand executes only client side commands
 func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 	var result resp.RESPType
-
 	switch cmd.Com {
 
 	case "PSYNC", "WAIT":
@@ -121,10 +120,16 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 		// INFO sent by client. REPLCONF - getack sent by master, remaining sent by slave.
 		// Server Related Commands. Both master and slave
 		result = client.Server.ServerCommandHandler(cmd)
+	case "PING", "SUBSCRIBE", "PUBLISH":
+		// PubSub related commands.
+		result = client.Server.PubSubHandler(cmd, client.Id)
+	case "CONFIG":
+		// Config commands handled by PersistenceManager.
+		result = client.Server.PersistenceHandler(cmd)
 	default:
-		// client handeled commands
-		if client.inSubscribedMode {
-			perm := client.Pubsub.ValidateCommand(cmd)
+		// client handled commands
+		if client.InSubscribedMode() {
+			perm := ValidateSubscriberPermissions(cmd.Com)
 			if !perm {
 				result = resp.SimpleError("ERR Can't execute '" + cmd.Com + "': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context")
 				break
@@ -132,28 +137,9 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 		}
 
 		switch cmd.Com {
-
-		case "PING":
-			if client.inSubscribedMode {
-				result = resp.Array{
-					resp.BulkString("pong"),
-					resp.BulkString(""),
-				}
-			} else {
-				result = resp.SimpleString("PONG")
-			}
-
-		case "CONFIG":
-			// Config commands handled by PersistenceManager.
-			result = client.PersistenceHandler(cmd)
-
 		case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
 			// Transaction Commands handled by Client
 			result = client.TransactionHandler(cmd)
-
-		case "SUBSCRIBE":
-			result = client.PubSubHandler(cmd)
-			client.inSubscribedMode = true
 
 		default:
 			// All other commands handled by (Command package)
@@ -163,22 +149,19 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 			} else {
 				result = command.StoreCommandHandler(cmd, client.Server.DataStore)
 			}
-
 		}
 
 	}
-
 	return result
 }
 
-// Persistence related function. Delegated to PersistenceManager.
-
-func (client *Client) PersistenceHandler(cmd *resp.Command) resp.RESPType {
-	return client.Server.Persistence.PersistanceHandler(cmd)
-}
-
-// PubSub related function. Delegated to PubSubManager.
-
-func (client *Client) PubSubHandler(cmd *resp.Command) resp.RESPType {
-	return client.Pubsub.HandleCommand(cmd)
+// client is in subscribed mode. Check if upcomming commands are allowed.
+// Allowed Commands: (P)SUBSCRIBE, (P)UNSUBSCRIBE, PING, QUIT, RESET
+func ValidateSubscriberPermissions(commandName string) bool {
+	switch commandName {
+	case "SUBSCRIBE", "PSUBSCRIBE", "UNSUBSCRIBE", "PUNSUBSCRIBE", "PING", "QUIT", "RESET":
+		return true
+	default:
+		return false
+	}
 }

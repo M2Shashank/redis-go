@@ -10,12 +10,15 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	persistence "github.com/codecrafters-io/redis-starter-go/internal/server/persistence"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
+
+	pubsub "github.com/codecrafters-io/redis-starter-go/internal/server/pubsub"
 )
 
 type Server struct {
 	Port      int
 	Role      string
 	DataStore *store.Store
+	Clients   map[string]*Client // map of client's unique id to client structs
 
 	// Replication Managers. A server uses one of these based on its role.
 	MasterManager *MasterManager
@@ -23,6 +26,9 @@ type Server struct {
 
 	// Persistence Manager, Persistence related fields
 	Persistence *persistence.Manager
+
+	// PubSub Manger
+	Pubsub           *pubsub.Manager
 }
 
 func NewServer(flags []string) *Server {
@@ -113,6 +119,7 @@ func Start(addr string, flags []string) {
 		}
 
 		client := NewClient(conn, server)
+		server.Clients[client.Id] = client
 
 		go HandleConn(client)
 	}
@@ -137,6 +144,9 @@ func (server *Server) ReplayAOFToStore(aofFileData []byte) {
 	}
 }
 
+// Command Handlers for Server related commands. 
+// Delegated to appropriate managers based on command type and server role.
+
 func (server *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 	switch cmd.Com {
 	case "INFO":
@@ -147,6 +157,14 @@ func (server *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 	default:
 		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
 	}
+}
+
+func (server *Server) PersistenceHandler(cmd *resp.Command) resp.RESPType {
+	return server.Persistence.PersistanceHandler(cmd)
+}
+
+func (server *Server) PubSubHandler(cmd *resp.Command, clientId string) resp.RESPType {
+	return server.Pubsub.HandleCommand(cmd, clientId)
 }
 
 // ************************* Command Handlers ********************************
