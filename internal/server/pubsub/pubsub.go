@@ -5,8 +5,8 @@ import (
 )
 
 type Manager struct {
-	// Clients are subscribers. client id's to channel mapping. 
-	Subscribers map[string]map[string]bool
+	// Clients are subscribers. client id's to channel mapping.
+	Subscribers  map[string]map[string]bool
 	IsSubscribed map[string]bool // true if client is in subscribed mode (after SUBSCRIBE command). false otherwise.
 	// Client id to Bool mapping.
 
@@ -16,9 +16,9 @@ type Manager struct {
 
 func NewManager() *Manager {
 	return &Manager{
-		Subscribers: make(map[string]map[string]bool),
+		Subscribers:  make(map[string]map[string]bool),
 		IsSubscribed: make(map[string]bool),
-		Publishers:  make(map[string]map[string]bool),
+		Publishers:   make(map[string]map[string]bool),
 	}
 }
 
@@ -52,6 +52,7 @@ func (m *Manager) HandleCommand(cmd *resp.Command, clientId string) resp.RESPTyp
 				resp.Integer(n),
 			)
 		}
+		m.IsSubscribed[clientId] = true
 		return result
 
 	case "PUBLISH":

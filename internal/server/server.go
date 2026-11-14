@@ -28,7 +28,7 @@ type Server struct {
 	Persistence *persistence.Manager
 
 	// PubSub Manger
-	Pubsub           *pubsub.Manager
+	Pubsub *pubsub.Manager
 }
 
 func NewServer(flags []string) *Server {
@@ -52,7 +52,7 @@ func NewServer(flags []string) *Server {
 	persistenceManager, aofFileData := persistence.NewPersistenceManager(flags[2:])
 
 	// PubSub Manager
-	pubsub := pubsub.NewManager()
+	pubSub := pubsub.NewManager()
 
 	dataStore := store.NewStore()
 	// Load data from RDB file if it exists. If not, start with an empty store.
@@ -66,7 +66,7 @@ func NewServer(flags []string) *Server {
 		MasterManager: masterManager,
 		SlaveManager:  slaveManager,
 		Persistence:   persistenceManager,
-		Pubsub:        pubsub,
+		Pubsub:        pubSub,
 		Clients:       make(map[string]*Client),
 	}
 
