@@ -22,6 +22,7 @@ type Client struct {
 
 	// PubSub Manger
 	Pubsub *pubsub.ClientManager
+	inSubscribedMode bool // true if client is in subscribed mode (after SUBSCRIBE command). false otherwise.
 }
 
 func NewClient(conn net.Conn, server *Server) *Client {

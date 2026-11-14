@@ -16,6 +16,17 @@ func NewClientManager() *ClientManager {
 	}
 }
 
+// client is in subscribed mode. Check if upcomming commands are allowed.
+// Allowed Commands: (P)SUBSCRIBE, (P)UNSUBSCRIBE, PING, QUIT, RESET
+func (cm *ClientManager) ValidateCommand(cmd *resp.Command) bool {
+	switch cmd.Com {
+	case "SUBSCRIBE", "PSUBSCRIBE", "UNSUBSCRIBE", "PUNSUBSCRIBE", "PING", "QUIT", "RESET":
+		return true
+	default:
+		return false
+	}
+}
+
 func (cm *ClientManager) HandleCommand(cmd *resp.Command) resp.RESPType {
 	var result resp.RESPType
 
@@ -31,7 +42,7 @@ func (cm *ClientManager) HandleCommand(cmd *resp.Command) resp.RESPType {
 		for _, ch := range cmd.Args {
 			n := cm.SubscribeTo(ch)
 
-			result = append(result.(resp.Array), 
+			result = append(result.(resp.Array),
 				resp.BulkString("subscribe"),
 				resp.BulkString(ch),
 				resp.Integer(n),
