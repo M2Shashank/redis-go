@@ -51,6 +51,9 @@ func NewServer(flags []string) *Server {
 	// Persistence Manager
 	persistenceManager, aofFileData := persistence.NewPersistenceManager(flags[2:])
 
+	// PubSub Manager
+	pubsub := pubsub.NewManager()
+
 	dataStore := store.NewStore()
 	// Load data from RDB file if it exists. If not, start with an empty store.
 	var rdbFile []byte = persistenceManager.Rdb.Data
@@ -63,6 +66,8 @@ func NewServer(flags []string) *Server {
 		MasterManager: masterManager,
 		SlaveManager:  slaveManager,
 		Persistence:   persistenceManager,
+		Pubsub:        pubsub,
+		Clients:       make(map[string]*Client),
 	}
 
 	// Replays AOF file recieved from persistence manager to the store
