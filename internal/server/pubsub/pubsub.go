@@ -20,7 +20,7 @@ func NewManager() *Manager {
 	return &Manager{
 		ClientChannels:  make(map[string]map[string]bool),
 		InSubsciberMode: make(map[string]bool),
-		ChannelClients:   make(map[string]map[string]bool),
+		ChannelClients:  make(map[string]map[string]bool),
 	}
 }
 
@@ -35,6 +35,21 @@ func (m *Manager) SubscribeTo(channel string, clientId string) int {
 		m.ChannelClients[channel] = make(map[string]bool)
 	}
 	m.ChannelClients[channel][clientId] = true
+	return len(m.ClientChannels[clientId])
+}
+
+func (m *Manager) UnsubscribeFrom(channel string, clientId string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.ClientChannels[clientId] != nil {
+		delete(m.ClientChannels[clientId], channel)
+	}
+
+	if m.ChannelClients[channel] != nil {
+		delete(m.ChannelClients[channel], clientId)
+	}
+
 	return len(m.ClientChannels[clientId])
 }
 

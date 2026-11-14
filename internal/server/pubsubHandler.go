@@ -37,6 +37,23 @@ func (s *Server) PubSubHandler(cmd *resp.Command, clientId string) resp.RESPType
 		s.Pubsub.InSubsciberMode[clientId] = true
 		return result
 
+	case "UNSUBSCRIBE":
+		if len(cmd.Args) <= 0 {
+			return resp.SimpleError("ERR wrong number of arguments for 'unsubscribe' command")
+		}
+
+		result := resp.Array{}
+		for _, ch := range cmd.Args {
+			n := s.Pubsub.UnsubscribeFrom(ch, clientId)
+
+			result = append(result,
+				resp.BulkString("unsubscribe"),
+				resp.BulkString(ch),
+				resp.Integer(n),
+			)
+		}
+		return result
+
 	case "PUBLISH":
 		if len(cmd.Args) != 2 {
 			return resp.SimpleError("ERR wrong number of arguments for 'publish' command")
