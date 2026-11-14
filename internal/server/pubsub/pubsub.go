@@ -26,15 +26,16 @@ func (cm *ClientManager) HandleCommand(cmd *resp.Command) resp.RESPType {
 			cm.subscribedChannels[cmd.Args[0]] = true
 		}
 
-		result = resp.Array([]resp.RESPType{})
+		result = resp.Array{}
+
 		for _, ch := range cmd.Args {
 			n := cm.SubscribeTo(ch)
 
-			result = append(result.(resp.Array), resp.Array([]resp.RESPType{
+			result = append(result.(resp.Array), 
 				resp.BulkString("subscribe"),
 				resp.BulkString(ch),
 				resp.Integer(n),
-			}))
+			)
 		}
 
 	default:
