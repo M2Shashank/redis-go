@@ -18,7 +18,7 @@ type AOFManager struct {
 // If a manifest file already exists, it opens the existing manifest file and retrieves the current AOF file name from it.
 // If manifest exists, it also returns the file descriptor of the current AOF file. 
 // If manifest doesn't exist, it returns null
-func NewAOFManager(dir string, appendfilename string) (*AOFManager, *os.File) {
+func NewAOFManager(dir string, appendfilename string) (*AOFManager, []byte) {
 	// Do not close. Sent Open file descriptor of manifest
 	manFileName := appendfilename + ".manifest"
 	manifest, exists := CreateManifestFile(dir, manFileName)
@@ -45,6 +45,12 @@ func NewAOFManager(dir string, appendfilename string) (*AOFManager, *os.File) {
 		return nil, nil
 	}
 
+	fileData, err := os.ReadFile(curaofFilePath)
+	if err != nil {
+		fmt.Printf("Error reading current AOF file: %v\n", err)
+		return nil, nil
+	}
+
 	manager := &AOFManager{
 		Directory:      dir,
 		Appendfilename: appendfilename,
@@ -53,7 +59,7 @@ func NewAOFManager(dir string, appendfilename string) (*AOFManager, *os.File) {
 	}
 
 	if exists {
-		return manager, curAofFile
+		return manager, fileData
 	}
 	return manager, nil
 }

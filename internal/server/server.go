@@ -8,10 +8,8 @@ import (
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
-	"github.com/codecrafters-io/redis-starter-go/internal/store"
 	persistence "github.com/codecrafters-io/redis-starter-go/internal/server/persistence"
-
-	// "github.com/codecrafters-io/redis-starter-go/internal/command"
+	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
 type Server struct {
@@ -35,7 +33,7 @@ func NewServer(flags []string) *Server {
 		role = "slave"
 	}
 
-	// Replication Managers 
+	// Replication Managers
 	var masterManager *MasterManager = nil
 	var slaveManager *SlaveManager = nil
 	if role == "master" {
@@ -45,24 +43,24 @@ func NewServer(flags []string) *Server {
 	}
 
 	// Persistence Manager
-	persistenceManager, aofFile := persistence.NewPersistenceManager(flags[2:])
+	persistenceManager, aofFileData := persistence.NewPersistenceManager(flags[2:])
 
 	dataStore := store.NewStore()
 	// Load data from RDB file if it exists. If not, start with an empty store.
 	var rdbFile []byte = persistenceManager.Rdb.Data
 	dataStore.LoadRDBIntoStore(rdbFile) // Parses and Loads data from RDB file into store
-	
+
 	server := &Server{
-		Port:               port,
-		DataStore:          dataStore,
-		Role:               role,
-		MasterManager:      masterManager,
-		SlaveManager:       slaveManager,
-		Persistence:        persistenceManager,
+		Port:          port,
+		DataStore:     dataStore,
+		Role:          role,
+		MasterManager: masterManager,
+		SlaveManager:  slaveManager,
+		Persistence:   persistenceManager,
 	}
 
 	// Replays AOF file recieved from persistence manager to the store
-	server.ReplayAOFToStore(aofFile) 
+	server.ReplayAOFToStore(aofFileData)
 	return server
 }
 
@@ -120,30 +118,22 @@ func Start(addr string, flags []string) {
 	}
 }
 
-func (server *Server) ReplayAOFToStore(aofFile *os.File) {
-	if aofFile == nil {
+func (server *Server) ReplayAOFToStore(aofFileData []byte) {
+	if len(aofFileData) == 0 || aofFileData == nil {
 		return
 	}
-
-	var fileData []byte = make([]byte, 1024*1024) // 1MB buffer
-	n, err := aofFile.Read(fileData)
-	if err != nil {
-		fmt.Println("Error reading AOF file: ", err.Error())
-		return
-	}
-	fileData = fileData[:n]
 
 	// Nil connection client for executing commands
 	replayClient := NewClient(nil, server)
 
 	for {
-		n, cmd := resp.ParseRESPCommand(fileData)
+		n, cmd := resp.ParseRESPCommand(aofFileData)
 		if cmd == nil || n == 0 {
 			break
 		}
 
 		_ = replayClient.ExecuteCommand(cmd)
-		fileData = fileData[n:]
+		aofFileData = aofFileData[n:]
 	}
 }
 
@@ -160,7 +150,6 @@ func (server *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 }
 
 // ************************* Command Router ********************************
-
 
 // ************************* Command Handlers ********************************
 
@@ -184,7 +173,7 @@ func (s *Server) ReplconfHandler(cmd *resp.Command, client *Client) resp.RESPTyp
 
 	case "GETACK": // sent by master to slave
 		// handles the REPLCONF commands sent by slave to master. So for 1
-		result = s.SlaveReplconfHandler(cmd, client) 
+		result = s.SlaveReplconfHandler(cmd, client)
 
 	default:
 		// handles the REPLCONF commands sent by master to slave. So for 2, 3, 4
