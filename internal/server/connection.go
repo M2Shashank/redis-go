@@ -127,8 +127,8 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 			perm := client.Pubsub.ValidateCommand(cmd)
 			if !perm {
 				result = resp.SimpleError("ERR Can't execute '" + cmd.Com + "': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context")
+				break
 			}
-			break
 		}
 
 		switch cmd.Com {
@@ -139,9 +139,8 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 			// Transaction Commands handled by Client
 			result = client.TransactionHandler(cmd)
 		case "SUBSCRIBE":
-			var mode bool
-			result, mode = client.PubSubHandler(cmd)
-			client.inSubscribedMode = mode
+			result = client.PubSubHandler(cmd)
+			client.inSubscribedMode = true
 		default: // All other commands handled by (Command package)
 			if client.inTransaction {
 				client.queuedCmds.Push(cmd)
@@ -164,6 +163,6 @@ func (client *Client) PersistenceHandler(cmd *resp.Command) resp.RESPType {
 
 // PubSub related function. Delegated to PubSubManager.
 
-func (client *Client) PubSubHandler(cmd *resp.Command) (resp.RESPType, bool) {
-	return client.Pubsub.HandleCommand(cmd), true
+func (client *Client) PubSubHandler(cmd *resp.Command) resp.RESPType {
+	return client.Pubsub.HandleCommand(cmd)
 }
