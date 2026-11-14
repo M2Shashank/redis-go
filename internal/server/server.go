@@ -10,6 +10,8 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 	persistence "github.com/codecrafters-io/redis-starter-go/internal/server/persistence"
+
+	// "github.com/codecrafters-io/redis-starter-go/internal/command"
 )
 
 type Server struct {
@@ -32,8 +34,8 @@ func NewServer(flags []string) *Server {
 	if replicaof != "" {
 		role = "slave"
 	}
-	var manager *persistence.Manager = persistence.NewPersistenceManager(flags[2:])
 
+	// Replication Managers 
 	var masterManager *MasterManager = nil
 	var slaveManager *SlaveManager = nil
 	if role == "master" {
@@ -42,19 +44,26 @@ func NewServer(flags []string) *Server {
 		slaveManager = NewSlaveManager(replicaof)
 	}
 
+	// Persistence Manager
+	persistenceManager, aofFile := persistence.NewPersistenceManager(flags[2:])
+
 	dataStore := store.NewStore()
 	// Load data from RDB file if it exists. If not, start with an empty store.
-	var rdbFile []byte = manager.Rdb.Data
+	var rdbFile []byte = persistenceManager.Rdb.Data
 	dataStore.LoadRDBIntoStore(rdbFile) // Parses and Loads data from RDB file into store
-
-	return &Server{
+	
+	server := &Server{
 		Port:               port,
 		DataStore:          dataStore,
 		Role:               role,
 		MasterManager:      masterManager,
 		SlaveManager:       slaveManager,
-		Persistence:        manager,
+		Persistence:        persistenceManager,
 	}
+
+	// Replays AOF file recieved from persistence manager to the store
+	server.ReplayAOFToStore(aofFile) 
+	return server
 }
 
 //************* Main Function. Accepts Client Connections ****************
@@ -111,6 +120,33 @@ func Start(addr string, flags []string) {
 	}
 }
 
+func (server *Server) ReplayAOFToStore(aofFile *os.File) {
+	if aofFile == nil {
+		return
+	}
+
+	var fileData []byte = make([]byte, 1024*1024) // 1MB buffer
+	n, err := aofFile.Read(fileData)
+	if err != nil {
+		fmt.Println("Error reading AOF file: ", err.Error())
+		return
+	}
+	fileData = fileData[:n]
+
+	// Nil connection client for executing commands
+	replayClient := NewClient(nil, server)
+
+	for {
+		n, cmd := resp.ParseRESPCommand(fileData)
+		if cmd == nil || n == 0 {
+			break
+		}
+
+		_ = replayClient.ExecuteCommand(cmd)
+		fileData = fileData[n:]
+	}
+}
+
 func (server *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 	switch cmd.Com {
 	case "INFO":
@@ -123,7 +159,10 @@ func (server *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 	}
 }
 
-// ******************************************************************
+// ************************* Command Router ********************************
+
+
+// ************************* Command Handlers ********************************
 
 // Both HandleConn and HandleMasterConn use this function to handle REPLCONF. Handle all REPLCONF commands here
 // * 1. REPLCONF GETACK * --> Sent my master to get acknowledgement of the offset of a slave

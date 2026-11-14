@@ -41,4 +41,6 @@ Things to Restructure or Modify
 5. Draw LLD 
 6. Validate the command before queueing - Transactions
 7. Inconsistency in the command execution. In mastercommandhandler
-8. 
+8. If file exists, read the commands from the aof, and execute. if file exists, it is sent to persistence
+9. remove the strong coupling of server and client somehow
+10.

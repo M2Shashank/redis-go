@@ -10,45 +10,81 @@ import (
 // Path :  dir/appendfilename.{ manifest, 1.incr.aof }
 type AOFManager struct {
 	Directory, Appendfilename string
-	Manifest                  *os.File
+	Manifest *os.File
+	CurAofFile *os.File
 }
 
-func NewAOFManager(dir string, appendfilename string) *AOFManager {
+// Creates a new AOFManager and return it. 
+// If a manifest file already exists, it opens the existing manifest file and retrieves the current AOF file name from it.
+// If manifest exists, it also returns the file descriptor of the current AOF file. 
+// If manifest doesn't exist, it returns null
+func NewAOFManager(dir string, appendfilename string) (*AOFManager, *os.File) {
 	// Do not close. Sent Open file descriptor of manifest
 	manFileName := appendfilename + ".manifest"
-	manifest := CreateManifestFile(dir, manFileName)
-
-	// Create the AOF and add it to the manifest file
-	aofFileName := appendfilename + ".1.incr.aof"
-	err := CreateAppendOnlyFile(dir, aofFileName, manifest)
-	if err != nil {
-		fmt.Printf("Error creating AOF file: %v\n", err)
-		return nil
+	manifest, exists := CreateManifestFile(dir, manFileName)
+	if manifest == nil {
+		fmt.Println("Error creating manifest file. AOF will not be created.")
+		return nil, nil
 	}
 
-	return &AOFManager{
+	if !exists {
+		// Create the AOF and add it to the manifest file
+		aofFileName := appendfilename + ".1.incr.aof"
+		err := CreateAppendOnlyFile(dir, aofFileName, manifest)
+		if err != nil {
+			fmt.Printf("Error creating AOF file: %v\n", err)
+			return nil, nil
+		}
+	}
+
+	curAOFfilename := GetFileNameFromManifest(manifest)
+	curaofFilePath := filepath.Join(dir, curAOFfilename)
+	curAofFile, err := os.OpenFile(curaofFilePath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Printf("Error opening current AOF file: %v\n", err)
+		return nil, nil
+	}
+
+	manager := &AOFManager{
 		Directory:      dir,
 		Appendfilename: appendfilename,
 		Manifest:       manifest,
+		CurAofFile:     curAofFile,
 	}
+
+	if exists {
+		return manager, curAofFile
+	}
+	return manager, nil
 }
 
-func CreateManifestFile(dir string, filename string) *os.File {
+// Opens manifest file. If it doesn't exist, creates a new one. 
+// Returns the file descriptor of the manifest file, if it already existed.
+func CreateManifestFile(dir string, filename string) (*os.File, bool) {
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		fmt.Printf("Error creating appendonly directory: %v\n", err)
-		return nil
+		return nil, false
 	}
 
 	filePath := filepath.Join(dir, filename)
-	file, err := os.Create(filePath)
-	if err != nil {
-		fmt.Printf("Error creating manifest file: %v\n", err)
-		return nil
+	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0644)
+	if err == nil {
+		return file, false // New manifest file created
 	}
-	return file
+
+	if os.IsExist(err) {
+		file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
+		if err != nil {
+			fmt.Printf("Error opening existing manifest file: %v\n", err)
+			return nil, false // Manifest file already exists
+		}
+		return file, true // Manifest file already exists
+	}
+	return nil, false
 }
 
+// Creates a new append-only file and adds it to the manifest.
 func CreateAppendOnlyFile(dir string, filename string, manifest *os.File) error {
 	filePath := filepath.Join(dir, filename)
 	aofFile, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -66,48 +102,39 @@ func CreateAppendOnlyFile(dir string, filename string, manifest *os.File) error 
 	return nil
 }
 
-// I dont need the AOFFile and AOFAddr in the AOFManager struct.
-// I just need the directory and the manifest file.
-// The current AOF file should be retrieved from the manifest file.
-// A files addr can be retrieved using [os.File].name()
+// A file's addr can be retrieved using [os.File].name()
 func (aof *AOFManager) WriteCommand(cmd []byte, sync string) {
 	// Get which file to write in from the manifest file
-	aofFileName := aof.GetFileNameFromManifest()
-	if aofFileName == "" {
+	// aofFileName := GetFileNameFromManifest(aof.Manifest)
+
+	// Read current AOF file name from the manifest file during server startup. 
+	// Using the stored current aof
+	if aof.CurAofFile == nil {
 		fmt.Println("Error: Could not retrieve AOF file name from manifest.")
 		return
 	}
 
 	// Write the command to the AOF file
-	aofFilePath := filepath.Join(aof.Directory, aofFileName)
-	file, err := os.OpenFile(aofFilePath, os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Printf("Error opening AOF file: %v\n", err)
-		return
-	}
-	defer file.Close()
-
-	_, err = file.Write(cmd)
+	_, err := aof.CurAofFile.Write(cmd)
 	if err != nil {
 		fmt.Printf("Error writing to AOF file: %v\n", err)
 		return
 	}
 
 	if sync == "always" {
-		if err := file.Sync(); err != nil {
+		if err := aof.CurAofFile.Sync(); err != nil {
 			fmt.Printf("Error syncing AOF: %v\n", err)
 		}
 	}
 }
 
 // Instead of reading the manifest for every write command, we can read it once when the AOFManager is created and store the current AOF file name in a field.
-
-func (aof *AOFManager) GetFileNameFromManifest() string {
-	if aof.Manifest == nil {
+func GetFileNameFromManifest(manifest *os.File) string {
+	if manifest == nil {
 		return ""
 	}
 
-	data, err := os.ReadFile(aof.Manifest.Name())
+	data, err := os.ReadFile(manifest.Name())
 	if err != nil {
 		fmt.Println("Error reading manifest file:", err)
 		return ""

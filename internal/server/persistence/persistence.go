@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"path/filepath"
+	"os"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
@@ -18,15 +19,16 @@ type Manager struct {
 	Aof *AOFManager
 }
 
-func NewPersistenceManager(flags []string) *Manager {
+func NewPersistenceManager(flags []string) (*Manager, *os.File) {
 	dir, dbfilename, appendonly, appenddirname, appendfilename, appendfsync := flags[0], flags[1], flags[2], flags[3], flags[4], flags[5]
 
-	var aof *AOFManager = nil
+	var aofManager *AOFManager = nil
+	var aofFile *os.File = nil
 	if appendonly == "yes" {
 		// create a new appendonly directory if it doesn't exist
 		appendonlyDir := filepath.Join(dir, appenddirname)
 
-		aof = NewAOFManager(appendonlyDir, appendfilename)
+		aofManager, aofFile = NewAOFManager(appendonlyDir, appendfilename)
 	}
 
 	var rdb *RDBManager = NewRDBManager(dir, dbfilename)
@@ -39,9 +41,9 @@ func NewPersistenceManager(flags []string) *Manager {
 		Appendfilename: appendfilename,
 		Appendfsync:    appendfsync,
 
-		Aof: aof,
+		Aof: aofManager,
 		Rdb: rdb,
-	}
+	}, aofFile
 }
 
 func (m *Manager) PersistanceHandler(cmd *resp.Command) resp.RESPType {
