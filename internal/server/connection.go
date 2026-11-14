@@ -121,7 +121,7 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 		// INFO sent by client. REPLCONF - getack sent by master, remaining sent by slave.
 		// Server Related Commands. Both master and slave
 		result = client.Server.ServerCommandHandler(cmd)
-	case "PING", "SUBSCRIBE", "PUBLISH":
+	case "PING", "SUBSCRIBE", "PUBLISH", "UNSUBSCRIBE":
 		// PubSub related commands.
 		result = client.Server.PubSubHandler(cmd, client.Id)
 	case "CONFIG":
@@ -166,3 +166,4 @@ func ValidateSubscriberPermissions(commandName string) bool {
 		return false
 	}
 }
+	
