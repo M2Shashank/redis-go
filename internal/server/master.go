@@ -88,8 +88,8 @@ func (s *Server) AddSlave(client *Client) {
 func (s *Server) SendRDBFile(client *Client) {
 	rdbFile, _ := hex.DecodeString(emptyRDBFileHex)
 	str := fmt.Sprintf("$%d\r\n", len(rdbFile))
-	(client.Conn).Write([]byte(str))
-	(client.Conn).Write(rdbFile)
+	client.Send([]byte(str))
+	client.Send(rdbFile)
 }
 
 func (s *Server) syncReplicasOfWrite(rawCommand []byte, com string) {

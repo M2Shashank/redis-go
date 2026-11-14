@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net"
 	"github.com/google/uuid"
 
@@ -16,13 +17,18 @@ type Client struct {
 	Server *Server
 	Id     string
 
+	WriteChannel chan []byte 
+	// buffered channel to write data to client. 
+	// Pubsub subscribe shoudnt block client. Hence this is implemented
+	// Writing to connection is done by channel
+
 	queuedCmds    *collections.Queue[*resp.Command] // for multi/ exec transactions
 	watchedKeys   map[string]int64                  // for watch command. Stores the key and its version at the time of WATCH command
 	inTransaction bool                              // true if MULTI command has been issued and EXEC or DISCARD is pending. false otherwise.
 }
 
 func NewClient(conn net.Conn, server *Server) *Client {
-	return &Client{
+	client := &Client{
 		Conn:   conn,
 		Server: server,
 		Id:     uuid.New().String(),
@@ -30,7 +36,25 @@ func NewClient(conn net.Conn, server *Server) *Client {
 		queuedCmds:    collections.NewQueue[*resp.Command](),
 		watchedKeys:   make(map[string]int64),
 		inTransaction: false,
+		WriteChannel: make(chan []byte, 1000),
 	}
+
+	go client.WriteLoop()
+	return client
+}
+
+func (c *Client) WriteLoop() {
+	for msg := range c.WriteChannel {
+		_, err := c.Conn.Write(msg)
+		if err != nil {
+			fmt.Printf("Error writing to client %s: %s: %s\n", c.Id, err.Error(), string(msg))
+			break
+		}
+	}
+}
+
+func (c *Client) Send(msg []byte) {
+	c.WriteChannel <- msg
 }
 
 func (c *Client) setWatchKey(key string) {
@@ -64,5 +88,5 @@ func (c *Client) clearTransactionState() {
 }
 
 func (c *Client) InSubscribedMode() bool {
-	return c.Server.Pubsub.IsSubscribed[c.Id]
+	return c.Server.Pubsub.InSubsciberMode[c.Id]
 }

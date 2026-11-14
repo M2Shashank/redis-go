@@ -173,14 +173,10 @@ func (m *MasterManager) WriteCommandToReplicas(rawCommand []byte) {
 
 	for slave, slaveStruct := range m.Replicas {
 		fmt.Printf("Sending to replica %s: %s\n", slave.Conn.RemoteAddr(), string(rawCommand))
-		n, err := slave.Conn.Write(rawCommand)
-		if err != nil {
-			fmt.Println("Error writing to slave: ", err.Error())
-			continue
-		}
+		slave.Send(rawCommand)
 		fmt.Println("Notified slave of write: ", string(rawCommand))
 
-		slaveStruct.expectedOffset += int64(n)
+		slaveStruct.expectedOffset += int64(len(rawCommand))
 	}
 }
 

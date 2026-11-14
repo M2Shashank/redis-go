@@ -49,7 +49,8 @@ func HandleConn(client *Client) {
 				client.Server.Persistence.FlushWriteCommandToAOF(rawCommand)
 			}
 
-			(client.Conn).Write(response)
+			//(client.Conn).Write(response)
+			client.Send(response)
 
 			// routeCommand for PSYNC acknowledges repl_id and offset. Now the RDB file is sent
 			if client.Server.Role == "master" && cmd.Com == "PSYNC" {

@@ -168,10 +168,6 @@ func (server *Server) PersistenceHandler(cmd *resp.Command) resp.RESPType {
 	return server.Persistence.PersistanceHandler(cmd)
 }
 
-func (server *Server) PubSubHandler(cmd *resp.Command, clientId string) resp.RESPType {
-	return server.Pubsub.HandleCommand(cmd, clientId)
-}
-
 // ************************* Command Handlers ********************************
 
 // Both HandleConn and HandleMasterConn use this function to handle REPLCONF. Handle all REPLCONF commands here
