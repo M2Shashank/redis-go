@@ -13,7 +13,7 @@ func StoreCommandHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPTyp
 	var result resp.RESPType
 	switch cmd.Com {
 
-	case "PING", "ECHO", "TYPE", "KEYS":
+	case "ECHO", "TYPE", "KEYS":
 		result = generalHandler(cmd, dataStore)
 
 	case "SET", "GET", "INCR":

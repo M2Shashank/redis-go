@@ -8,9 +8,6 @@ import (
 func generalHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	switch cmd.Com {
 
-	case "PING":
-		return resp.SimpleString("PONG")
-
 	case "ECHO":
 		var result resp.RESPType
 		if len(cmd.Args) != 1 {

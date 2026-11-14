@@ -132,22 +132,38 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 		}
 
 		switch cmd.Com {
+
+		case "PING":
+			if client.inSubscribedMode {
+				result = resp.Array{
+					resp.BulkString("pong"),
+					resp.BulkString(""),
+				}
+			} else {
+				result = resp.SimpleString("PONG")
+			}
+
 		case "CONFIG":
 			// Config commands handled by PersistenceManager.
 			result = client.PersistenceHandler(cmd)
+
 		case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
 			// Transaction Commands handled by Client
 			result = client.TransactionHandler(cmd)
+
 		case "SUBSCRIBE":
 			result = client.PubSubHandler(cmd)
 			client.inSubscribedMode = true
-		default: // All other commands handled by (Command package)
+
+		default:
+			// All other commands handled by (Command package)
 			if client.inTransaction {
 				client.queuedCmds.Push(cmd)
 				result = resp.SimpleString("QUEUED")
 			} else {
 				result = command.StoreCommandHandler(cmd, client.Server.DataStore)
 			}
+
 		}
 
 	}
