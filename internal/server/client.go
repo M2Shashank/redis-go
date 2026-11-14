@@ -5,6 +5,8 @@ import (
 
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
+
+	pubsub "github.com/codecrafters-io/redis-starter-go/internal/server/pubsub"
 )
 
 // Client represents a single client connection.
@@ -17,15 +19,21 @@ type Client struct {
 	queuedCmds *collections.Queue[*resp.Command] // for multi/ exec transactions
 	watchedKeys map[string]int64 // for watch command. Stores the key and its version at the time of WATCH command
 	inTransaction bool // true if MULTI command has been issued and EXEC or DISCARD is pending. false otherwise.
+
+	// PubSub Manger
+	Pubsub *pubsub.ClientManager
 }
 
 func NewClient(conn net.Conn, server *Server) *Client {
+	pubsub := pubsub.NewClientManager()
+
 	return &Client{
 		Conn: conn,
 		Server: server,
 		queuedCmds: collections.NewQueue[*resp.Command](),
 		watchedKeys: make(map[string]int64),
 		inTransaction: false,
+		Pubsub: pubsub,
 	}
 }
 
@@ -61,21 +69,3 @@ func (c *Client) clearTransactionState() {
 
 
 
-// functions related to handling connections
-
-
-
-func (client *Client) MasterCommandHandler(cmd *resp.Command) resp.RESPType {
-	return client.Server.MasterCommandHandler(cmd)
-}
-
-// commands handled by a Server. But both master and slave
-func (client *Client) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
-	return client.Server.ServerCommandHandler(cmd)
-}
-
-// Persistence related function. Delegated to PersistenceManager.
-
-func (client *Client) PersistenceHandler(cmd *resp.Command) resp.RESPType {
-	return client.Server.Persistence.PersistanceHandler(cmd)
-}

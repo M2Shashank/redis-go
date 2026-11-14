@@ -62,41 +62,6 @@ func HandleConn(client *Client) {
 	}
 }
 
-// Called from handleConn(). So handling Clients . Master included as Client for a Slave server
-// Routes commands based on server type (master/slave) and command type (replication, server, transaction, etc.)
-// Command Package's ExecuteCommand executes only client side commands
-func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
-	var result resp.RESPType
-
-	switch cmd.Com {
-
-	case "PSYNC", "WAIT":
-		// PSYNC sent by slave, WAIT sent by client. 
-		// Both sent to master. .: Handled by MasterCommandHandler
-		result = client.MasterCommandHandler(cmd)
-	case "INFO", "REPLCONF":
-		// INFO sent by client. REPLCONF - getack sent by master, remaining sent by slave.
-		// Server Related Commands. Both master and slave
-		result = client.ServerCommandHandler(cmd)
-	case "CONFIG":
-		// Config commands handled by PersistenceManager.
-		result = client.PersistenceHandler(cmd)
-	case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
-		// Transaction Commands handled by Client
-		result = client.TransactionHandler(cmd)
-	default: // All other commands handled by (Command package)
-		if client.inTransaction {
-			client.queuedCmds.Push(cmd)
-			result = resp.SimpleString("QUEUED")
-		} else {
-			result = command.StoreCommandHandler(cmd, client.Server.DataStore)
-		}
-
-	}
-	
-	return result
-}
-
 // used by slave to handle commands from master
 // Commands from clients to slave are handled in HandleConn function, which takes care of sending responses back
 // reading for commands from master and executing them on slave. No response is sent back to master for these commands.
@@ -138,4 +103,64 @@ func HandleMasterConn(client *Client) {
 			client.Server.SlaveManager.IncrementOffset(int64(n))
 		}
 	}
+}
+
+
+// Called from handleConn(). So handling Clients . Master included as Client for a Slave server
+// Routes commands based on server type (master/slave) and command type (replication, server, transaction, etc.)
+// Command Package's ExecuteCommand executes only client side commands
+func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
+	var result resp.RESPType
+
+	switch cmd.Com {
+
+	case "PSYNC", "WAIT":
+		// PSYNC sent by slave, WAIT sent by client. 
+		// Both sent to master. .: Handled by MasterCommandHandler
+		result = client.MasterCommandHandler(cmd)
+	case "INFO", "REPLCONF":
+		// INFO sent by client. REPLCONF - getack sent by master, remaining sent by slave.
+		// Server Related Commands. Both master and slave
+		result = client.ServerCommandHandler(cmd)
+	case "CONFIG":
+		// Config commands handled by PersistenceManager.
+		result = client.PersistenceHandler(cmd)
+	case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
+		// Transaction Commands handled by Client
+		result = client.TransactionHandler(cmd)
+	case "SUBSCRIBE":
+		result = client.PubSubHandler(cmd)
+	default: // All other commands handled by (Command package)
+		if client.inTransaction {
+			client.queuedCmds.Push(cmd)
+			result = resp.SimpleString("QUEUED")
+		} else {
+			result = command.StoreCommandHandler(cmd, client.Server.DataStore)
+		}
+
+	}
+	
+	return result
+}
+
+
+// functions related to handling connections
+
+func (client *Client) MasterCommandHandler(cmd *resp.Command) resp.RESPType {
+	return client.Server.MasterCommandHandler(cmd)
+}
+
+// commands handled by a Server. But both master and slave
+func (client *Client) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
+	return client.Server.ServerCommandHandler(cmd)
+}
+
+// Persistence related function. Delegated to PersistenceManager.
+
+func (client *Client) PersistenceHandler(cmd *resp.Command) resp.RESPType {
+	return client.Server.Persistence.PersistanceHandler(cmd)
+}
+
+func (client *Client) PubSubHandler(cmd *resp.Command) resp.RESPType {
+	return client.Pubsub.HandleCommand(cmd)
 }
