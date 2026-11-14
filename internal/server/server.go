@@ -149,8 +149,6 @@ func (server *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 	}
 }
 
-// ************************* Command Router ********************************
-
 // ************************* Command Handlers ********************************
 
 // Both HandleConn and HandleMasterConn use this function to handle REPLCONF. Handle all REPLCONF commands here
@@ -197,8 +195,4 @@ func InfoHandler(server *Server) resp.RESPType {
 		fmt.Fprintf(&info, "%s:%s\r\n", key, value)
 	}
 	return resp.BulkString(info.String())
-}
-
-func (s *Server) FlushCmdToAOF(cmd []byte) {
-	s.Persistence.FlushWriteCommandToAOF(cmd)
 }

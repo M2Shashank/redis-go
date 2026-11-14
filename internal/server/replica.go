@@ -90,12 +90,6 @@ func (s *Server) InitiateHandshake() error {
 	return nil
 }
 
-// ------------------- helper methods for replication
-
-func (s *Server) IncreamentOffset(n int) {
-	s.SlaveManager.IncrementOffset(int64(n))
-}
-
 // -------------------------- Handshake helpers
 
 func (s *Server) SendAndCheckCommandToMaster(cmd *resp.Command, expectedResponse string) (string, error) {

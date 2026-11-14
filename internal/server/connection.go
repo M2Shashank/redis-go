@@ -46,7 +46,7 @@ func HandleConn(client *Client) {
 			}
 
 			if result.Type() != "SimpleError" && cmd.IsWriteCommand() {
-				client.Server.FlushCmdToAOF(rawCommand)
+				client.Server.Persistence.FlushWriteCommandToAOF(rawCommand)
 			}
 			
 			(client.Conn).Write(response)
@@ -93,9 +93,7 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 		}
 
 	}
-
-
-
+	
 	return result
 }
 
@@ -127,17 +125,17 @@ func HandleMasterConn(client *Client) {
 
 			switch cmd.Com {
 			case "REPLCONF": // getack
-				// scmd sent by master to get ack from slave
+				// cmd sent by master to get ack from slave
 				result := client.Server.ReplconfHandler(cmd, nil)
 				response := resp.Encode(result)
 				(client.Conn).Write(response)
 			default:
 				if cmd.IsWriteCommand() {
-					_ = command.StoreCommandHandler(cmd, client.Server.DataStore)
+					_ = client.ExecuteCommand(cmd)
 				}
 			}
 
-			client.Server.IncreamentOffset(n)
+			client.Server.SlaveManager.IncrementOffset(int64(n))
 		}
 	}
 }
