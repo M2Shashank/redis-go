@@ -46,6 +46,31 @@ func (l *DoublyLL[T]) PushBack(value T) {
 	l.Length++
 }
 
+func (l *DoublyLL[T]) PushAtIndex(value T, index int) {
+	if index < 0 || index > l.Length {
+		return
+	}
+
+	if index == 0 {
+		l.PushFront(value)
+		return
+	}
+	if index == l.Length {
+		l.PushBack(value)
+		return
+	}
+
+	current := l.Head
+	for i := 0; i < index; i++ {
+		current = current.Next
+	}
+
+	node := &ListNode[T]{value, current, current.Prev}
+	current.Prev.Next = node
+	current.Prev = node
+	l.Length++
+}
+
 func (l *DoublyLL[T]) PopFront() (T, error) {
 	if l.Head == nil {
 		var zero T
@@ -105,6 +130,19 @@ func (l *DoublyLL[T]) ForEach(f func(value T)) {
 		f(current.Value)
 		current = current.Next
 	}
+}
+
+func (l *DoublyLL[T]) GetFirstNodeIndexMoreThan(value T, compare func(T, T) bool) int {
+	current := l.Head
+	index := 0
+	for current != nil {
+		if compare(current.Value, value) {
+			return index
+		}
+		current = current.Next
+		index++
+	}
+	return index // return length if no node is greater than value
 }
 
 // ---------- end of DoublyLinkedList Implementation -------------

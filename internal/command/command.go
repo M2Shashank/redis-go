@@ -25,6 +25,9 @@ func StoreCommandHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPTyp
 	case "XADD", "XRANGE", "XREAD":
 		result = streamHandler(cmd, dataStore)
 
+	case "ZADD":
+		result = sortedSetHandler(cmd, dataStore)
+
 	default:
 		result = resp.SimpleError("ERR Invalid or Unsupported Command")
 
