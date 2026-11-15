@@ -6,68 +6,72 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"
 )
 
-type SSetEntry struct {
-	Score float64
-	Value string
-}
-
 type SortedSet struct {
-	SetList  *collections.DoublyLL[*SSetEntry]
-	IndexMap map[*SSetEntry]int
-	Length int
+	// linked list of values. Map of value to score
+	SetList  *collections.DoublyLL[string]
+	ScoreMap map[string]float64
 }
 
 func (s *Store) CreateSortedSetObject(key string) *RedisObject {
 	obj := &RedisObject{
 		Type: SortedSetType,
 		Value: &SortedSet{
-			SetList:  &collections.DoublyLL[*SSetEntry]{},
-			IndexMap: make(map[*SSetEntry]int),
-			Length: 0,
+			SetList:  &collections.DoublyLL[string]{},
+			ScoreMap: make(map[string]float64),
 		},
+		version: 0,
 	}
 	return obj
 }
 
-func (s *SortedSet) Add(score float64, value string) int {
-	node := &SSetEntry{
-		Score: score,
-		Value: value,
-	}
+func (s *SortedSet) Add(score float64, value string) bool {
+	var returnValue bool = true
 
-	_, exists := s.IndexMap[node]
+	_, exists := s.ScoreMap[value]
 	if exists {
-		return s.Length
+		if score == s.ScoreMap[value] {
+			return false // no change
+		}
+
+		returnValue = false
+		s.SetList.PopBasedOnValue(value, func(s1, s2 string) bool {
+			return s1 == s2
+		})
+	}
+	s.ScoreMap[value] = score
+
+	greater := func(s1, s2 string) bool {
+		if s.ScoreMap[s1] == s.ScoreMap[s2] {
+			return s1 > s2
+		}
+		return s.ScoreMap[s1] > s.ScoreMap[s2]
 	}
 
-	index := s.SetList.GetFirstNodeIndexMoreThan(node, func(a, b *SSetEntry) bool {
-		return a.Score > b.Score || (a.Score == b.Score && a.Value > b.Value)
-	})
-	s.SetList.PushAtIndex(node, index)
-	s.IndexMap[node] = index
-	s.Length ++
+	curNode := s.SetList.Head
+	index, pushed := 0, false
+	for curNode != nil {
+		if greater(curNode.Value, value) {
+			s.SetList.PushAtIndex(value, index)
+			pushed = true
+			break
+		}
+		curNode = curNode.Next
+		index++
+	}
+	if !pushed {
+		s.SetList.PushBack(value)
+	}
 
-	return s.Length
+	return returnValue
 }
 
-
-
-
-
-
-
-
-
-
-
-
-func (s *Store) ZADD(key string, score float64, value string) (int, error) {
+func (s *Store) ZADD(key string, score float64, value string) (bool, error) {
 	s.dataMutex.Lock()
 	defer s.dataMutex.Unlock()
 
 	redisObj, exists := s.data[key]
 	if exists && redisObj.Type != SortedSetType {
-		return 0, errors.New("ERR WrongType Operation. NOT A SORTED SET")
+		return false, errors.New("ERR WrongType Operation. NOT A SORTED SET")
 	}
 
 	if !exists {
@@ -76,7 +80,7 @@ func (s *Store) ZADD(key string, score float64, value string) (int, error) {
 	}
 
 	sortedSet := redisObj.Value.(*SortedSet)
-	n := sortedSet.Add(score, value)
+	added := sortedSet.Add(score, value)
 	redisObj.version++
-	return n, nil
+	return added, nil
 }

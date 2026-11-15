@@ -19,14 +19,17 @@ func sortedSetHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		for i := 1; i < len(cmd.Args); i += 2 {
 			score, err := strconv.ParseFloat(cmd.Args[i], 64)
 			if err != nil {
-				return resp.SimpleError("ERR Invalid or Unsupported Arguments for ZADD command")
+				return resp.SimpleError("ERR value is not a valid float")
 			}
 
-			n, err := dataStore.ZADD(cmd.Args[0], score, cmd.Args[i+1])
+			done, err := dataStore.ZADD(cmd.Args[0], score, cmd.Args[i+1])
 			if err != nil {
-				return resp.SimpleError("ERR " + err.Error())
+				return resp.SimpleError(err.Error())
 			}
-			ans = n
+			
+			if done {
+				ans ++
+			}
 		}
 		return resp.Integer(ans)
 

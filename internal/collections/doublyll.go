@@ -107,6 +107,27 @@ func (l *DoublyLL[T]) PopBack() (T, error) {
 	return value, nil
 }
 
+func (l *DoublyLL[T]) PopBasedOnValue(value T, compare func(T, T) bool) {
+	current := l.Head
+	for current != nil {
+		if compare(current.Value, value) {
+			if current.Prev == nil {
+				l.Head = current.Next
+			} else {
+				current.Prev.Next = current.Next
+			}
+			if current.Next == nil {
+				l.Tail = current.Prev
+			} else {
+				current.Next.Prev = current.Prev
+			}
+			l.Length--
+			return
+		}
+		current = current.Next
+	} 
+}
+
 func (l *DoublyLL[T]) Front() (T, error) {
 	if l.Head == nil {
 		var zero T
@@ -130,19 +151,6 @@ func (l *DoublyLL[T]) ForEach(f func(value T)) {
 		f(current.Value)
 		current = current.Next
 	}
-}
-
-func (l *DoublyLL[T]) GetFirstNodeIndexMoreThan(value T, compare func(T, T) bool) int {
-	current := l.Head
-	index := 0
-	for current != nil {
-		if compare(current.Value, value) {
-			return index
-		}
-		current = current.Next
-		index++
-	}
-	return index // return length if no node is greater than value
 }
 
 // ---------- end of DoublyLinkedList Implementation -------------
