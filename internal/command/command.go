@@ -25,7 +25,7 @@ func StoreCommandHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPTyp
 	case "XADD", "XRANGE", "XREAD":
 		result = streamHandler(cmd, dataStore)
 
-	case "ZADD", "ZRANK", "ZRANGE", "ZCARD", "ZSCORE":
+	case "ZADD", "ZRANK", "ZRANGE", "ZCARD", "ZSCORE", "ZREM":
 		result = sortedSetHandler(cmd, dataStore)
 
 	default:

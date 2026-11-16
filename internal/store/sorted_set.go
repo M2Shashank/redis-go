@@ -112,6 +112,20 @@ func (s *SortedSet) GetRange(left, right int) []string {
 	return listEntries
 }
 
+func (s *SortedSet) RemoveValue(value string) bool {
+	_, exists := s.ScoreMap[value]
+	if !exists {
+		return false
+	}
+
+	s.SetList.PopBasedOnValue(value, func(s1, s2 string) bool {
+		return s1 == s2
+	})
+	delete(s.ScoreMap, value)
+	s.rebuildIndexMap()
+	return true
+}
+
 func (s *Store) ZADD(key string, score float64, value string) (bool, error) {
 	s.dataMutex.Lock()
 	defer s.dataMutex.Unlock()
@@ -192,4 +206,20 @@ func (s *Store) ZSCORE(key, value string) (string, error) {
 	}
 
 	return strconv.FormatFloat(score, 'f', -1, 64), nil
+}
+
+func (s *Store) ZREM(key, value string) (bool, error) {
+	s.dataMutex.Lock()
+	defer s.dataMutex.Unlock()
+
+	SetObj, exists := s.data[key]
+	if !exists || SetObj.Type != SortedSetType {
+		return false, errors.New("ERR Key does not exist")
+	}
+
+	sortedSet := SetObj.Value.(*SortedSet)
+	done := sortedSet.RemoveValue(value)
+	SetObj.version++
+
+	return done, nil
 }

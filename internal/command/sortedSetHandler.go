@@ -28,7 +28,7 @@ func sortedSetHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			}
 
 			if done {
-				ans ++
+				ans++
 			}
 		}
 		return resp.Integer(ans)
@@ -79,6 +79,24 @@ func sortedSetHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		}
 
 		return resp.BulkString(score)
+
+	case "ZREM":
+		if len(cmd.Args) < 2 {
+			return resp.SimpleError("ERR wrong number of arguments for 'zrem' command")
+		}
+
+		var ans int = 0
+		for i := 1; i < len(cmd.Args); i++ {
+			removed, err := dataStore.ZREM(cmd.Args[0], cmd.Args[i])
+			if err != nil {
+				return resp.SimpleError(err.Error())
+			}
+
+			if removed {
+				ans++
+			}
+		}
+		return resp.Integer(ans)
 
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")
