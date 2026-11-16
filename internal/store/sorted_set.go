@@ -52,12 +52,12 @@ func (s *SortedSet) Add(score float64, value string) bool {
 	curNode := s.SetList.Head
 	index, pushed := 0, false
 	for curNode != nil {
-		if s.greater(curNode.Value, value) {
+		if !pushed && s.greater(curNode.Value, value) {
 			s.SetList.PushAtIndex(value, index)
 			pushed = true
 		}
-		curNode = curNode.Next
 		s.IndexMap[curNode.Value] = index
+		curNode = curNode.Next
 		index++
 	}
 	if !pushed {
