@@ -1,0 +1,33 @@
+package command
+
+import (
+	"strconv"
+
+	"github.com/codecrafters-io/redis-starter-go/internal/resp"
+	"github.com/codecrafters-io/redis-starter-go/internal/store"
+)
+
+func bitmapHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
+	switch cmd.Com {
+	case "SETBIT":
+		if len(cmd.Args) != 3 {
+			return resp.SimpleError("ERR wrong number of arguments for 'setbit' command")
+		}
+
+		key, offsetStr, valueStr := cmd.Args[0], cmd.Args[1], cmd.Args[2]
+		offset, err1 := strconv.Atoi(offsetStr)
+		value, err2 := strconv.Atoi(valueStr)
+		if err1 != nil || err2 != nil || (value != 0 && value != 1) {
+			return resp.SimpleError("ERR value is not an integer or out of range")
+		}
+
+		prevValue, err := dataStore.SetBit(key, offset, value)
+		if err != nil {
+			return resp.SimpleError(err.Error())
+		}
+		return resp.Integer(prevValue)
+
+	default:
+		return resp.SimpleError("ERR Invalid or Unsupported Command")
+	}
+}

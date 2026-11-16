@@ -28,6 +28,9 @@ func StoreCommandHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPTyp
 	case "ZADD", "ZRANK", "ZRANGE", "ZCARD", "ZSCORE", "ZREM":
 		result = sortedSetHandler(cmd, dataStore)
 
+	case "SETBIT":
+		result = bitmapHandler(cmd, dataStore)
+
 	default:
 		result = resp.SimpleError("ERR Invalid or Unsupported Command")
 

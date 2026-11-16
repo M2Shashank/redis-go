@@ -10,12 +10,12 @@ type String struct {
 	Length int // length of the string in bytes
 }
 
-func createStringObject(value string) *RedisObject {
+func createStringObject() *RedisObject {
 	obj := &RedisObject{
 		Type: StringType,
 		Value: &String{
-			Data: []byte(value),
-			Length: len(value),
+			Data: []byte(""),
+			Length: 0,
 		},
 		version: 0,
 	}
@@ -50,8 +50,8 @@ func (s *Store) Set(key string, value string) error {
 
 	obj, exists := s.data[key]
 	if !exists {
-		s.data[key] = createStringObject(value)
-		return nil
+		s.data[key] = createStringObject()
+		obj = s.data[key]
 	}
 
 	if exists && obj.Type != StringType {
