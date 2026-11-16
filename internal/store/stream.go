@@ -42,7 +42,7 @@ func (s *Store) createStreamObject(key string) *RedisObject {
 		Type: StreamType,
 		Value: &Stream{
 			Key:     key,
-			Entries: &collections.DoublyLL[*StreamEntry]{},
+			Entries: collections.NewDoublyLL[*StreamEntry](),
 			Notify: []chan struct {
 				key   string
 				field *StreamEntry

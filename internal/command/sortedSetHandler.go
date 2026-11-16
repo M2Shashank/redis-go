@@ -45,6 +45,21 @@ func sortedSetHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 		return resp.Integer(index)
 
+	case "ZRANGE":
+		if len(cmd.Args) < 3 {
+			return resp.SimpleError("ERR wrong number of arguments for 'zrange' command")
+		}
+
+		var left, err1 = strconv.Atoi(cmd.Args[1])
+		var right, err2 = strconv.Atoi(cmd.Args[2])
+		if err1 != nil || err2 != nil {
+			return resp.SimpleError("ERR value is not a valid integer")
+		}
+
+		var list []string = dataStore.ZRANGE(cmd.Args[0], left, right)
+		var result resp.RESPType = resp.ArrayToBulkRESP(list)
+		return result
+
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")
 

@@ -80,6 +80,37 @@ func (s *SortedSet) Add(score float64, value string) bool {
 	return returnValue
 }
 
+func (s *SortedSet) GetRange(left, right int) []string {
+	var len int = s.SetList.Length
+	if left < 0 {
+		left = len + left
+	}
+	if right < 0 {
+		right = len + right
+	}
+
+	if left >= right || left >= len || right < 0 {
+		return []string{}
+	}
+
+	var listEntries []string = []string{}
+	var index int = 0
+
+	cur := s.SetList.Head
+	for index < left && cur != nil {
+		cur = cur.Next
+		index++
+	}
+
+	for index <= right && cur != nil {
+		listEntries = append(listEntries, cur.Value)
+		cur = cur.Next
+		index++
+	}
+
+	return listEntries
+}
+
 func (s *Store) ZADD(key string, score float64, value string) (bool, error) {
 	s.dataMutex.Lock()
 	defer s.dataMutex.Unlock()
@@ -115,4 +146,18 @@ func (s *Store) ZRANK(key, value string) (int, error) {
 	}
 
 	return index, nil
+}
+
+func (s *Store) ZRANGE(key string, left, right int) []string {
+	s.dataMutex.RLock()
+	defer s.dataMutex.RUnlock()
+
+	SetObj, exists := s.data[key]
+	if !exists || SetObj.Type != SortedSetType {
+		return []string{}
+	}
+
+	sortedSet := SetObj.Value.(*SortedSet)
+	listRange := sortedSet.GetRange(left, right)
+	return listRange
 }

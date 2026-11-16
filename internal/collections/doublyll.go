@@ -17,7 +17,16 @@ type DoublyLL[T any] struct {
 	Length     int
 }
 
+func NewDoublyLL[T any]() *DoublyLL[T] {
+	return &DoublyLL[T]{
+		Head:       nil,
+		Tail:       nil,
+		Length:     0,
+	}
+}
+
 // methods
+
 func (l *DoublyLL[T]) PushFront(value T) {
 	var node *ListNode[T] = &ListNode[T]{value, nil, nil}
 

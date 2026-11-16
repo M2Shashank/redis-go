@@ -7,7 +7,7 @@ type Queue[T any] struct {
 
 func NewQueue[T any]() *Queue[T] {
 	return &Queue[T]{
-		Entries: &DoublyLL[T]{},
+		Entries: NewDoublyLL[T](),
 		size:    0,
 	}
 }
@@ -37,6 +37,6 @@ func (q *Queue[T]) Pop() T {
 }
 
 func (q *Queue[T]) Clear() {
-	q.Entries = &DoublyLL[T]{}
+	q.Entries = NewDoublyLL[T]()
 	q.size = 0
 }
