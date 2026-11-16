@@ -90,7 +90,7 @@ func (s *SortedSet) GetRange(left, right int) []string {
 		right = len + right
 	}
 
-	if left >= right || left >= len || right < 0 {
+	if left > right || left >= len || right < 0 {
 		return []string{}
 	}
 
