@@ -33,6 +33,16 @@ func (s *SortedSet) greater(s1, s2 string) bool {
 	return s.ScoreMap[s1] > s.ScoreMap[s2]
 }
 
+func (s *SortedSet) rebuildIndexMap() {
+	s.IndexMap = make(map[string]int)
+
+	index := 0
+	for node := s.SetList.Head; node != nil; node = node.Next {
+		s.IndexMap[node.Value] = index
+		index++
+	}
+}
+
 func (s *SortedSet) Add(score float64, value string) bool {
 	var returnValue bool = true
 
@@ -55,6 +65,7 @@ func (s *SortedSet) Add(score float64, value string) bool {
 		if !pushed && s.greater(curNode.Value, value) {
 			s.SetList.PushAtIndex(value, index)
 			pushed = true
+			break
 		}
 		s.IndexMap[curNode.Value] = index
 		curNode = curNode.Next
@@ -64,6 +75,7 @@ func (s *SortedSet) Add(score float64, value string) bool {
 		s.SetList.PushBack(value)
 		s.IndexMap[value] = index
 	}
+	s.rebuildIndexMap()
 
 	return returnValue
 }
