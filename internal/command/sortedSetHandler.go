@@ -60,6 +60,26 @@ func sortedSetHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		var result resp.RESPType = resp.ArrayToBulkRESP(list)
 		return result
 
+	case "ZCARD":
+		if len(cmd.Args) != 1 {
+			return resp.SimpleError("ERR wrong number of arguments for 'zcard' command")
+		}
+
+		var count int = dataStore.ZCARD(cmd.Args[0])
+		return resp.Integer(count)
+
+	case "ZSCORE":
+		if len(cmd.Args) != 2 {
+			return resp.SimpleError("ERR wrong number of arguments for 'zscore' command")
+		}
+
+		score, err := dataStore.ZSCORE(cmd.Args[0], cmd.Args[1])
+		if err != nil {
+			return resp.Null{}
+		}
+
+		return resp.BulkString(score)
+
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")
 

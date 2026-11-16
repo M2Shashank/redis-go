@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"
 )
@@ -160,4 +161,35 @@ func (s *Store) ZRANGE(key string, left, right int) []string {
 	sortedSet := SetObj.Value.(*SortedSet)
 	listRange := sortedSet.GetRange(left, right)
 	return listRange
+}
+
+func (s *Store) ZCARD(key string) int {
+	s.dataMutex.RLock()
+	defer s.dataMutex.RUnlock()
+
+	SetObj, exists := s.data[key]
+	if !exists || SetObj.Type != SortedSetType {
+		return 0
+	}
+
+	sortedSet := SetObj.Value.(*SortedSet)
+	return sortedSet.SetList.Length
+}
+
+func (s *Store) ZSCORE(key, value string) (string, error) {
+	s.dataMutex.RLock()
+	defer s.dataMutex.RUnlock()
+
+	SetObj, exists := s.data[key]
+	if !exists || SetObj.Type != SortedSetType {
+		return "", errors.New("ERR Key does not exist")
+	}
+
+	sortedSet := SetObj.Value.(*SortedSet)
+	score, exists := sortedSet.ScoreMap[value]
+	if !exists {
+		return "", errors.New("ERR Value does not exist in the sorted set")
+	}
+
+	return strconv.FormatFloat(score, 'f', -1, 64), nil
 }
