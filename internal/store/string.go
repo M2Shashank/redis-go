@@ -1,12 +1,12 @@
 package store
 
 import (
-	"strconv"
 	"errors"
+	"strconv"
 )
 
 type String struct {
-	Data []byte
+	Data   []byte
 	Length int // length of the string in bytes
 }
 
@@ -14,7 +14,7 @@ func createStringObject() *RedisObject {
 	obj := &RedisObject{
 		Type: StringType,
 		Value: &String{
-			Data: []byte(""),
+			Data:   []byte(""),
 			Length: 0,
 		},
 		version: 0,
@@ -76,7 +76,9 @@ func (s *Store) Incr(key string) (int, error) {
 
 	obj, exists := s.data[key]
 	if !exists {
-		s.data[key] = &RedisObject{StringType, 1, "1"}
+		s.data[key] = createStringObject()
+		s.data[key].Value.(*String).SetData("1")
+		s.data[key].version++
 		return 1, nil
 	}
 	if obj.Type != StringType {
