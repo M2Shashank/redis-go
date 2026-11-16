@@ -27,6 +27,20 @@ func bitmapHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		}
 		return resp.Integer(prevValue)
 
+	case "GETBIT":
+		if len(cmd.Args) != 2 {
+			return resp.SimpleError("ERR wrong number of arguments for 'getbit' command")
+		}
+
+		key, offsetStr := cmd.Args[0], cmd.Args[1]
+		offset, err := strconv.Atoi(offsetStr)
+		if err != nil {
+			return resp.SimpleError("ERR value is not an integer or out of range")
+		}
+
+		value := dataStore.GetBit(key, offset)
+		return resp.Integer(value)
+
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")
 	}
