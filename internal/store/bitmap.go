@@ -2,7 +2,6 @@ package store
 
 import (
 	"errors"
-	"strconv"
 )
 
 // type String struct {
@@ -24,23 +23,24 @@ import (
 
 func (s *String) SetBitVal(byteIndex, bitIndex, value int) int {
 	if byteIndex + 1 > s.Length {
-		s.Length = byteIndex + 1
 		s.Data = append(
 			s.Data, 
 			make([]byte, byteIndex - s.Length + 1)...,
 		)
+		s.Length = byteIndex + 1
 	}
 
 	dataByte := &s.Data[byteIndex]
 	prevBit := (*dataByte >> (7 - bitIndex)) & 1
+
+	mask := byte(1 << (7 - bitIndex))
 	if value == 1 {
-		*dataByte |= (1 << (7 - bitIndex))
-	} else if string(prevBit) == "1" {
-		*dataByte ^= (1 << (7 - bitIndex))
+		*dataByte |= mask
+	} else {
+		*dataByte &= (^mask)
 	}
 
-	prevBitVal, _ := strconv.Atoi(string(prevBit))
-	return prevBitVal
+	return int(prevBit)
 }
 
 func (s *Store) SetBit(key string, offset int, value int) (int, error) {
