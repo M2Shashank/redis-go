@@ -37,7 +37,7 @@ type ModStream struct {
 	Entries []*StreamEntry
 }
 
-func (s *Store) createStreamObject(key string) *RedisObject {
+func createStreamObject(key string) *RedisObject {
 	obj := &RedisObject{
 		Type: StreamType,
 		Value: &Stream{
@@ -179,7 +179,7 @@ func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) 
 	}
 
 	if !exists {
-		s.data[key] = s.createStreamObject(key)
+		s.data[key] = createStreamObject(key)
 		redisObj = s.data[key]
 	}
 
@@ -288,7 +288,7 @@ func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTim
 	for i := 0; i < len(keys); i++ {
 		redisObj, exists := s.data[keys[i]]
 		if !exists {
-			s.data[keys[i]] = s.createStreamObject(keys[i])
+			s.data[keys[i]] = createStreamObject(keys[i])
 			redisObj = s.data[keys[i]]
 		}
 		if redisObj.Type != StreamType {

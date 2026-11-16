@@ -5,6 +5,28 @@ import (
 	"errors"
 )
 
+type String struct {
+	Data []byte
+	Length int // length of the string in bytes
+}
+
+func createStringObject(value string) *RedisObject {
+	obj := &RedisObject{
+		Type: StringType,
+		Value: &String{
+			Data: []byte(value),
+			Length: len(value),
+		},
+		version: 0,
+	}
+	return obj
+}
+
+func (s *String) SetData(value string) {
+	s.Data = []byte(value)
+	s.Length = len(value)
+}
+
 // ----------------- String Operations ------------------
 func (s *Store) Get(key string) (string, error) {
 	s.dataMutex.RLock()
@@ -18,7 +40,8 @@ func (s *Store) Get(key string) (string, error) {
 		return "", errors.New("ERR WrongType. NOT A STRING")
 	}
 
-	return obj.Value.(string), nil
+	var ans string = string(obj.Value.(*String).Data)
+	return ans, nil
 }
 
 func (s *Store) Set(key string, value string) error {
@@ -27,7 +50,7 @@ func (s *Store) Set(key string, value string) error {
 
 	obj, exists := s.data[key]
 	if !exists {
-		s.data[key] = &RedisObject{StringType, 1, value}
+		s.data[key] = createStringObject(value)
 		return nil
 	}
 
@@ -35,7 +58,7 @@ func (s *Store) Set(key string, value string) error {
 		return errors.New("ERR WrongType. NOT A STRING")
 	}
 
-	s.data[key].Value = value
+	obj.Value.(*String).SetData(value)
 	s.data[key].version++
 	return nil
 }
@@ -60,12 +83,14 @@ func (s *Store) Incr(key string) (int, error) {
 		return 0, errors.New("ERR WrongType. NOT A STRING")
 	}
 
-	value, err := strconv.Atoi(obj.Value.(string))
+	stringObj := obj.Value.(*String)
+
+	value, err := strconv.Atoi(string(stringObj.Data))
 	if err != nil {
 		return 0, errors.New("ERR value is not an integer or out of range")
 	}
 
-	s.data[key].Value = strconv.Itoa(value + 1)
+	stringObj.SetData(strconv.Itoa(value + 1))
 	s.data[key].version++
 	return value + 1, nil
 }

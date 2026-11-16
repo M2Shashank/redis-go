@@ -14,7 +14,7 @@ type SortedSet struct {
 	IndexMap map[string]int
 }
 
-func (s *Store) CreateSortedSetObject(key string) *RedisObject {
+func createSortedSetObject(key string) *RedisObject {
 	obj := &RedisObject{
 		Type: SortedSetType,
 		Value: &SortedSet{
@@ -136,7 +136,7 @@ func (s *Store) ZADD(key string, score float64, value string) (bool, error) {
 	}
 
 	if !exists {
-		s.data[key] = s.CreateSortedSetObject(key)
+		s.data[key] = createSortedSetObject(key)
 		redisObj = s.data[key]
 	}
 

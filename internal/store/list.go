@@ -12,7 +12,7 @@ type List struct {
 	Waiters []chan string
 }
 
-func (s *Store) createListObject() *RedisObject {
+func createListObject() *RedisObject {
 	obj := &RedisObject{
 		Type: ListType,
 		Value: &List{
@@ -47,7 +47,7 @@ func (s *Store) RPush(key string, values []string) (int, error) {
 
 	listObj, exists := s.data[key]
 	if !exists {
-		s.data[key] = s.createListObject()
+		s.data[key] = createListObject()
 		listObj = s.data[key]
 	}
 	if exists && listObj.Type != ListType {
@@ -72,7 +72,7 @@ func (s *Store) LPush(key string, values []string) (int, error) {
 
 	listObj, exists := s.data[key]
 	if !exists {
-		s.data[key] = s.createListObject()
+		s.data[key] = createListObject()
 		listObj = s.data[key]
 	}
 	if exists && listObj.Type != ListType {
@@ -195,7 +195,7 @@ func (s *Store) BLPop(key string, timeout float64) (string, error) {
 
 	obj, exists := s.data[key]
 	if !exists {
-		s.data[key] = s.createListObject()
+		s.data[key] = createListObject()
 		obj = s.data[key]
 	}
 	if obj.Type != ListType {
