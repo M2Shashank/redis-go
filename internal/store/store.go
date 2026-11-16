@@ -46,6 +46,8 @@ func (s *Store) TypeOf(key string) string {
 		return "list"
 	case StreamType:
 		return "stream"
+	case SortedSetType:
+		return "zset"
 	default:
 		return "none"
 	}

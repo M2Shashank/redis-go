@@ -26,12 +26,24 @@ func sortedSetHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			if err != nil {
 				return resp.SimpleError(err.Error())
 			}
-			
+
 			if done {
 				ans ++
 			}
 		}
 		return resp.Integer(ans)
+
+	case "ZRANK":
+		if len(cmd.Args) != 2 {
+			return resp.SimpleError("ERR wrong number of arguments for 'zrank' command")
+		}
+
+		index, err := dataStore.ZRANK(cmd.Args[0], cmd.Args[1])
+		if err != nil {
+			return resp.Null{}
+		}
+
+		return resp.Integer(index)
 
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")
