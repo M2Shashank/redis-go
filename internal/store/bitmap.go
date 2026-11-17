@@ -51,6 +51,23 @@ func (s *String) GetBitVal(byteIndex, bitIndex int) int {
 	return int((s.Data[byteIndex] >> (7 - bitIndex)) & 1)
 }
 
+func (s *String) CountSetBits(start, end int) int {
+	if end == -1 {
+		end = s.Length - 1
+	}
+	if start < 0 || end >= s.Length || start > end {
+		return 0
+	}
+
+	var count int = 0
+	for i := start; i <= end; i++ {
+		for j := range 8 {
+			count += int((s.Data[i] >> j) & 1)
+		}
+	}
+	return count
+}
+
 func (s *Store) SetBit(key string, offset int, value int) (int, error) {
 	redisObj, exists := s.data[key]
 	if !exists {
@@ -87,4 +104,15 @@ func (s *Store) StrLen(key string) int {
 
 	stringObj := redisObj.Value.(*String)
 	return stringObj.Length
+}
+
+func (s *Store) BitCount(key string, start, end int) int {
+	redisObj, exists := s.data[key]
+	if !exists || redisObj.Type != StringType {
+		return 0
+	}
+
+	stringObj := redisObj.Value.(*String)
+	count := stringObj.CountSetBits(start, end)
+	return count
 }

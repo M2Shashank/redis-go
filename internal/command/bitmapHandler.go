@@ -49,6 +49,29 @@ func bitmapHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		value := dataStore.StrLen(cmd.Args[0])
 		return resp.Integer(value)
 
+	case "BITCOUNT":
+		if len(cmd.Args) < 1 {
+			return resp.SimpleError("ERR wrong number of arguments for 'bitcount' command")
+		}
+
+		var start, end int = 0, -1 // Default values for start and end
+		var err error
+		if len(cmd.Args) >= 2 {
+			start, err = strconv.Atoi(cmd.Args[1])
+			if err != nil {
+				return resp.SimpleError("ERR value is not an integer or out of range")
+			}
+		}
+		if len(cmd.Args) == 3 {
+			end, err = strconv.Atoi(cmd.Args[2])
+			if err != nil {
+				return resp.SimpleError("ERR value is not an integer or out of range")
+			}
+		}
+
+		value := dataStore.BitCount(cmd.Args[0], start, end)
+		return resp.Integer(value)
+
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")
 	}
