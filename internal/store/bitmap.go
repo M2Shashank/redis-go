@@ -100,6 +100,34 @@ func (s *String) AndAll(keys []*String) int {
 	return s.Length
 }
 
+func (s *String) OrOne(o *String) {
+	minLength := min(s.Length, o.Length)
+	for i := range minLength {
+		s.Data[i] |= o.Data[i]
+	}
+
+	if o.Length > s.Length {
+		s.Data = append(s.Data, o.Data[s.Length:]...)
+		s.Length = o.Length
+	}
+}
+
+func (s *String) OrAll(keys []*String) int {
+	if len(keys) == 0 {
+		s.Data = []byte{0}
+		s.Length = 1
+		return 1
+	}
+
+	s.Data = append([]byte{}, keys[0].Data...)
+	s.Length = keys[0].Length
+
+	for _, key := range keys {
+		s.OrOne(key)
+	}
+	return s.Length
+}
+
 func (s *Store) SetBit(key string, offset int, value int) (int, error) {
 	redisObj, exists := s.data[key]
 	if !exists {
@@ -150,27 +178,30 @@ func (s *Store) BitCount(key string, start, end int) int {
 }
 
 func (s *Store) BitopHandler(operation string, destKey string, keys []string) (int, error) {
+	if strings.ToUpper(operation) != "AND" && strings.ToUpper(operation) != "OR" {
+		return 0, errors.New("ERR Unsupported BITOP operation")
+	}
+
+	destObj, exists := s.data[destKey]
+	if !exists {
+		s.data[destKey] = createStringObject()
+		destObj = s.data[destKey]
+	}
+
+	var missing bool = false
+	validKeys := []*String{}
+	for _, key := range keys {
+		redisObj, exists := s.data[key]
+		if exists && redisObj.Type == StringType {
+			data := redisObj.Value.(*String)
+			validKeys = append(validKeys, data)
+		} else {
+			missing = true
+		}
+	}
+
 	switch strings.ToUpper(operation) {
 	case "AND":
-		var missing bool = false
-
-		validKeys := []*String{}
-		for _, key := range keys {
-			redisObj, exists := s.data[key]
-			if exists && redisObj.Type == StringType {
-				data := redisObj.Value.(*String)
-				validKeys = append(validKeys, data)
-			} else {
-				missing = true
-			}
-		}
-
-		destObj, exists := s.data[destKey]
-		if !exists {
-			s.data[destKey] = createStringObject()
-			destObj = s.data[destKey]
-		}
-
 		lenDest := destObj.Value.(*String).AndAll(validKeys)
 		if missing {
 			clear(destObj.Value.(*String).Data)
@@ -178,7 +209,10 @@ func (s *Store) BitopHandler(operation string, destKey string, keys []string) (i
 
 		return lenDest, nil
 
-	default:
-		return 0, errors.New("ERR Unsupported BITOP operation")
+	case "OR":
+		lenDest := destObj.Value.(*String).OrAll(validKeys)
+		return lenDest, nil
 	}
+
+	return 0, errors.New("ERR Unsupported BITOP operation")
 }
