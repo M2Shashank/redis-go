@@ -152,12 +152,16 @@ func (s *Store) BitCount(key string, start, end int) int {
 func (s *Store) BitopHandler(operation string, destKey string, keys []string) (int, error) {
 	switch strings.ToUpper(operation) {
 	case "AND":
+		var missing bool = false
+
 		validKeys := []*String{}
 		for _, key := range keys {
 			redisObj, exists := s.data[key]
 			if exists && redisObj.Type == StringType {
 				data := redisObj.Value.(*String)
 				validKeys = append(validKeys, data)
+			} else {
+				missing = true
 			}
 		}
 
@@ -168,6 +172,10 @@ func (s *Store) BitopHandler(operation string, destKey string, keys []string) (i
 		}
 
 		lenDest := destObj.Value.(*String).AndAll(validKeys)
+		if missing {
+			clear(destObj.Value.(*String).Data)
+		}
+
 		return lenDest, nil
 
 	default:
