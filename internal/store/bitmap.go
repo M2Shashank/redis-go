@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"strings"
 )
 
 // type String struct {
@@ -69,6 +70,36 @@ func (s *String) CountSetBits(start, end int) int {
 	return count
 }
 
+func (s *String) AndOne(o *String) {
+	minLength := min(s.Length, o.Length)
+	for i := range minLength {
+		s.Data[i] &= o.Data[i]
+	}
+
+	if o.Length > s.Length {
+		s.Data = append(s.Data, make([]byte, o.Length-s.Length)...)
+		s.Length = o.Length
+	} else {
+		clear(s.Data[minLength:s.Length])
+	}
+}
+
+func (s *String) AndAll(keys []*String) int {
+	if len(keys) == 0 {
+		s.Data = []byte{0}
+		s.Length = 1
+		return 1
+	}
+
+	s.Data = append([]byte{}, keys[0].Data...)
+	s.Length = keys[0].Length
+
+	for _, key := range keys {
+		s.AndOne(key)
+	}
+	return s.Length
+}
+
 func (s *Store) SetBit(key string, offset int, value int) (int, error) {
 	redisObj, exists := s.data[key]
 	if !exists {
@@ -116,4 +147,30 @@ func (s *Store) BitCount(key string, start, end int) int {
 	stringObj := redisObj.Value.(*String)
 	count := stringObj.CountSetBits(start, end)
 	return count
+}
+
+func (s *Store) BitopHandler(operation string, destKey string, keys []string) (int, error) {
+	switch strings.ToUpper(operation) {
+	case "AND":
+		validKeys := []*String{}
+		for _, key := range keys {
+			redisObj, exists := s.data[key]
+			if exists && redisObj.Type == StringType {
+				data := redisObj.Value.(*String)
+				validKeys = append(validKeys, data)
+			}
+		}
+
+		destObj, exists := s.data[destKey]
+		if !exists {
+			s.data[destKey] = createStringObject()
+			destObj = s.data[destKey]
+		}
+
+		lenDest := destObj.Value.(*String).AndAll(validKeys)
+		return lenDest, nil
+
+	default:
+		return 0, errors.New("ERR Unsupported BITOP operation")
+	}
 }

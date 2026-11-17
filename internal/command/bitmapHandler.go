@@ -72,6 +72,18 @@ func bitmapHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		value := dataStore.BitCount(cmd.Args[0], start, end)
 		return resp.Integer(value)
 
+	case "BITOP":
+		if len(cmd.Args) < 3 {
+			return resp.SimpleError("ERR wrong number of arguments for 'bitop' command")
+		}
+
+		value, err := dataStore.BitopHandler(cmd.Args[0], cmd.Args[1], cmd.Args[2:])
+		if err != nil {
+			return resp.SimpleError(err.Error())
+		}
+
+		return resp.Integer(value)
+
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")
 	}
