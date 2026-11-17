@@ -28,7 +28,7 @@ func StoreCommandHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPTyp
 	case "ZADD", "ZRANK", "ZRANGE", "ZCARD", "ZSCORE", "ZREM":
 		result = sortedSetHandler(cmd, dataStore)
 
-	case "SETBIT", "GETBIT":
+	case "SETBIT", "GETBIT", "STRLEN":
 		result = bitmapHandler(cmd, dataStore)
 
 	default:

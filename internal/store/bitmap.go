@@ -22,10 +22,10 @@ import (
 // }
 
 func (s *String) SetBitVal(byteIndex, bitIndex, value int) int {
-	if byteIndex + 1 > s.Length {
+	if byteIndex+1 > s.Length {
 		s.Data = append(
-			s.Data, 
-			make([]byte, byteIndex - s.Length + 1)...,
+			s.Data,
+			make([]byte, byteIndex-s.Length+1)...,
 		)
 		s.Length = byteIndex + 1
 	}
@@ -44,10 +44,10 @@ func (s *String) SetBitVal(byteIndex, bitIndex, value int) int {
 }
 
 func (s *String) GetBitVal(byteIndex, bitIndex int) int {
-	if byteIndex + 1 > s.Length {
+	if byteIndex+1 > s.Length {
 		return 0
 	}
-	
+
 	return int((s.Data[byteIndex] >> (7 - bitIndex)) & 1)
 }
 
@@ -62,7 +62,7 @@ func (s *Store) SetBit(key string, offset int, value int) (int, error) {
 	}
 
 	stringObj := redisObj.Value.(*String)
-	byteIndex, bitIndex := offset / 8, offset % 8
+	byteIndex, bitIndex := offset/8, offset%8
 	ans := stringObj.SetBitVal(byteIndex, bitIndex, value)
 	redisObj.version++
 	return ans, nil
@@ -75,6 +75,16 @@ func (s *Store) GetBit(key string, offset int) int {
 	}
 
 	stringObj := redisObj.Value.(*String)
-	byteIndex, bitIndex := offset / 8, offset % 8
+	byteIndex, bitIndex := offset/8, offset%8
 	return stringObj.GetBitVal(byteIndex, bitIndex)
+}
+
+func (s *Store) StrLen(key string) int {
+	redisObj, exists := s.data[key]
+	if !exists || redisObj.Type != StringType {
+		return 0
+	}
+
+	stringObj := redisObj.Value.(*String)
+	return stringObj.Length
 }

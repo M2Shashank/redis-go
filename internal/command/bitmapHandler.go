@@ -41,6 +41,14 @@ func bitmapHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		value := dataStore.GetBit(key, offset)
 		return resp.Integer(value)
 
+	case "STRLEN":
+		if len(cmd.Args) != 1 {
+			return resp.SimpleError("ERR wrong number of arguments for 'strlen' command")
+		}
+
+		value := dataStore.StrLen(cmd.Args[0])
+		return resp.Integer(value)
+
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")
 	}
