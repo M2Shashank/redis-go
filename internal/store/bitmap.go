@@ -52,6 +52,7 @@ func (s *String) GetBitVal(byteIndex, bitIndex int) int {
 }
 
 func (s *String) CountSetBits(start, end int) int {
+	end = min(end, s.Length-1)
 	if end == -1 {
 		end = s.Length - 1
 	}
