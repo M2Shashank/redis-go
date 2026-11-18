@@ -31,6 +31,9 @@ func StoreCommandHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPTyp
 	case "SETBIT", "GETBIT", "STRLEN", "BITCOUNT", "BITOP":
 		result = bitmapHandler(cmd, dataStore)
 
+	case "GEOADD":
+		result = geoHandler(cmd, dataStore)
+
 	default:
 		result = resp.SimpleError("ERR Invalid or Unsupported Command")
 
