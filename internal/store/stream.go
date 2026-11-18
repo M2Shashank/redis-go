@@ -2,169 +2,22 @@ package store
 
 import (
 	"errors"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"
+	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
 )
-
-type StreamEntry struct {
-	millisecondsTime int64
-	sequenceNumber   int64
-	ID               string
-	Fields           map[string]string
-}
-
-// stream object looks like -- map[string]*Stream
-// data[key] => &RedisObject{ StreamType, &Stream{ Entries: &DoublyLL[StreamEntry]{} }}
-type Stream struct {
-	Key     string
-	Entries *collections.DoublyLL[*StreamEntry]
-
-	// list of channels waiting for new entries in this stream. BXREAD
-	// Why list of channels ? more than 1 client can be waiting for new entries in the same stream
-	Notify []chan struct {
-		key   string
-		field *StreamEntry
-	}
-}
-
-// For Response Conversion Only. Not used in Store
-// Used in XREAD and BXREAD commands.
-type ModStream struct {
-	Key     string
-	Entries []*StreamEntry
-}
 
 func createStreamObject(key string) *RedisObject {
 	obj := &RedisObject{
 		Type: StreamType,
-		Value: &Stream{
+		Value: &storage.Stream{
 			Key:     key,
-			Entries: collections.NewDoublyLL[*StreamEntry](),
-			Notify: []chan struct {
-				key   string
-				field *StreamEntry
-			}{},
+			Entries: collections.NewDoublyLL[*storage.StreamEntry](),
+			Notify: []chan *storage.StreamNotification{},
 		},
 	}
 	return obj
-}
-
-// --------------- Stream Methods ----------------
-func (s *Stream) validate(entry *StreamEntry) error {
-	lastEntry, err := s.Entries.Back()
-	if err != nil {
-		return nil
-	}
-
-	if entry.millisecondsTime < lastEntry.millisecondsTime {
-		return errors.New("ERR The ID specified in XADD is equal or smaller than the target stream top item")
-	}
-
-	if entry.millisecondsTime == lastEntry.millisecondsTime && entry.sequenceNumber <= lastEntry.sequenceNumber {
-		return errors.New("ERR The ID specified in XADD is equal or smaller than the target stream top item")
-	}
-
-	return nil
-}
-
-func (s *Stream) createStreamEntry(ID string, fields map[string]string) (*StreamEntry, error) {
-	var nums []string = strings.Split(ID, "-")
-	var millisecondsTime, sequenceNumber int64
-	var err1, err2 error
-
-	if len(nums) != 2 && ID != "*" {
-		return nil, errors.New("ERR Invalid Arguments for XADD command")
-	}
-
-	if ID == "*" {
-		millisecondsTime = time.Now().UnixMilli()
-	} else {
-		millisecondsTime, err1 = strconv.ParseInt(nums[0], 10, 64)
-		if err1 != nil {
-			return nil, errors.New("ERR Invalid Arguments for XADD command")
-		}
-	}
-
-	if ID == "*" || nums[1] == "*" {
-		var lastEntry, err = s.Entries.Back()
-		if err != nil {
-			if millisecondsTime == 0 {
-				sequenceNumber = 1
-			} else {
-				sequenceNumber = 0
-			}
-		} else {
-			if millisecondsTime < lastEntry.millisecondsTime {
-				return nil, errors.New("ERR The ID specified in XADD is equal or smaller than the target stream top item")
-			} else if millisecondsTime == lastEntry.millisecondsTime {
-				sequenceNumber = lastEntry.sequenceNumber + 1
-			} else {
-				sequenceNumber = 0
-			}
-		}
-	} else {
-		sequenceNumber, err2 = strconv.ParseInt(nums[1], 10, 64)
-		if err2 != nil {
-			return nil, errors.New("ERR Invalid Arguments for XADD command")
-		}
-	}
-
-	if millisecondsTime < 0 || sequenceNumber < 0 {
-		return nil, errors.New("ERR Invalid Arguments for XADD command")
-	}
-	if millisecondsTime == 0 && sequenceNumber == 0 {
-		return nil, errors.New("ERR The ID specified in XADD must be greater than 0-0")
-	}
-
-	newID := strconv.FormatInt(millisecondsTime, 10) + "-" + strconv.FormatInt(sequenceNumber, 10)
-
-	var entry *StreamEntry = &StreamEntry{
-		ID:               newID,
-		millisecondsTime: millisecondsTime,
-		sequenceNumber:   sequenceNumber,
-		Fields:           fields,
-	}
-
-	var err error = s.validate(entry)
-	if err != nil {
-		return nil, err
-	}
-
-	return entry, nil
-}
-
-func (s *Stream) LastEntry() (*StreamEntry, error) {
-	return s.Entries.Back()
-}
-
-// Should be called with dataMutex locked
-func (s *Stream) removeChannel(ch chan struct {
-	key   string
-	field *StreamEntry
-}) {
-	var newNotify []chan struct {
-		key   string
-		field *StreamEntry
-	}
-	for _, c := range s.Notify {
-		if c != ch {
-			newNotify = append(newNotify, c)
-		}
-	}
-	s.Notify = newNotify
-}
-
-// Should be called with dataMutex locked
-func (s *Stream) notifyNewEntry(entry *StreamEntry) {
-	for _, ch := range s.Notify {
-		ch <- struct {
-			key   string
-			field *StreamEntry
-		}{s.Key, entry}
-	}
 }
 
 // -----------------------------------------------
@@ -183,53 +36,42 @@ func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) 
 		redisObj = s.data[key]
 	}
 
-	stream := redisObj.Value.(*Stream)
-	entry, err := stream.createStreamEntry(ID, fields)
+	stream := redisObj.Value.(*storage.Stream)
+	entry, err := stream.CreateStreamEntry(ID, fields)
 	if err != nil {
 		return "", err
 	}
 
 	stream.Entries.PushBack(entry)
-	stream.notifyNewEntry(entry)
+	stream.NotifyNewEntry(entry)
 	redisObj.version++
 	return entry.ID, nil
 }
 
-func (s *Store) XRange(key string, startMST int64, startSeq int64, endMST int64, endSeq int64) ([]*StreamEntry, error) {
+func (s *Store) XRange(key string, startMST int64, startSeq int64, endMST int64, endSeq int64) ([]*storage.StreamEntry, error) {
 	s.dataMutex.RLock()
 	defer s.dataMutex.RUnlock()
 
 	redisObj, exists := s.data[key]
 	if !exists {
-		return []*StreamEntry{}, nil
+		return []*storage.StreamEntry{}, nil
 	}
 
 	if redisObj.Type != StreamType {
 		return nil, errors.New("ERR WrongType Operation. NOT A STREAM")
 	}
 
-	var result []*StreamEntry = make([]*StreamEntry, 0, 10)
-	streamEntries := redisObj.Value.(*Stream).Entries
-
-	streamEntries.ForEach(func(curr *StreamEntry) {
-		afterStart := curr.millisecondsTime > startMST || (curr.millisecondsTime == startMST && curr.sequenceNumber >= startSeq)
-		beforeEnd := curr.millisecondsTime < endMST || (curr.millisecondsTime == endMST && (endSeq != -1 && curr.sequenceNumber <= endSeq || endSeq == -1))
-		if endMST == -1 {
-			beforeEnd = true
-		}
-
-		if afterStart && beforeEnd {
-			result = append(result, curr)
-		}
-	})
+	stream := redisObj.Value.(*storage.Stream)
+	result := stream.FilterEntries(startMST, startSeq, endMST, endSeq)
+	
 	return result, nil
 }
 
-func (s *Store) XReadStreams(keys []string, mst []int64, seq []int64) ([]*ModStream, bool) {
+func (s *Store) XReadStreams(keys []string, mst []int64, seq []int64) ([]*storage.ModStream, bool) {
 	s.dataMutex.RLock()
 	defer s.dataMutex.RUnlock()
 
-	var response []*ModStream = make([]*ModStream, 0, len(keys))
+	var response []*storage.ModStream = make([]*storage.ModStream, 0, len(keys))
 	for i := 0; i < len(keys); i++ {
 		if mst[i] == -1 && seq[i] == -1 {
 			continue
@@ -240,7 +82,7 @@ func (s *Store) XReadStreams(keys []string, mst []int64, seq []int64) ([]*ModStr
 			return nil, false
 		}
 
-		if len(entries) != 0 && entries[0].millisecondsTime == mst[i] && entries[0].sequenceNumber == seq[i] {
+		if len(entries) != 0 && entries[0].IsIDEqual(mst[i], seq[i]) {
 			entries = entries[1:]
 		}
 
@@ -248,7 +90,7 @@ func (s *Store) XReadStreams(keys []string, mst []int64, seq []int64) ([]*ModStr
 			continue
 		}
 
-		response = append(response, &ModStream{
+		response = append(response, &storage.ModStream{
 			Key:     keys[i],
 			Entries: entries,
 		})
@@ -267,22 +109,20 @@ func (s *Store) XReadStreams(keys []string, mst []int64, seq []int64) ([]*ModStr
 // If it is not greater, continue waiting.
 // If it is greater, return the entry and remove the channel from the Notify list of all its keys streams.
 // If the timeout expires, return nil and remove the channel from the Notify list of all its keys streams.
-func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTime int64) ([]*ModStream, error) {
+func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTime int64) ([]*storage.ModStream, error) {
 	var expiryTimeMS time.Duration = time.Duration(expiryTime) * time.Millisecond
-	type pair struct {
-		mst, seq int64
-	}
-	var mp map[string]pair = make(map[string]pair, len(keys))
+
+	var mstMp map[string]int64 = make(map[string]int64, len(keys))
+	var seqMp map[string]int64 = make(map[string]int64, len(keys))
+
 	for i := range keys {
-		mp[keys[i]] = pair{mst[i], seq[i]}
+		mstMp[keys[i]] = mst[i]
+		seqMp[keys[i]] = seq[i]
 	}
 
-	var result []*ModStream = make([]*ModStream, 0, 1)
+	var result []*storage.ModStream = make([]*storage.ModStream, 0, 1)
 
-	waiterChannel := make(chan struct {
-		key   string
-		field *StreamEntry
-	}, 1)
+	waiterChannel := make(chan *storage.StreamNotification, 1)
 
 	s.dataMutex.Lock()
 	for i := 0; i < len(keys); i++ {
@@ -295,7 +135,7 @@ func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTim
 			return nil, errors.New("ERR WrongType Operation. NOT A STREAM")
 		}
 
-		var notifyChList = &redisObj.Value.(*Stream).Notify
+		var notifyChList = &redisObj.Value.(*storage.Stream).Notify
 		*notifyChList = append(*notifyChList, waiterChannel)
 	}
 	s.dataMutex.Unlock()
@@ -304,16 +144,16 @@ func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTim
 	removeChFromAll := func() {
 		for i := 0; i < len(keys); i++ {
 			redisObj, _ := s.data[keys[i]]
-			redisObj.Value.(*Stream).removeChannel(waiterChannel)
+			redisObj.Value.(*storage.Stream).RemoveChannel(waiterChannel)
 		}
 	}
 
 	if expiryTimeMS == 0 {
 		msg := <-waiterChannel
 		removeChFromAll()
-		result = append(result, &ModStream{
-			Key:     msg.key,
-			Entries: []*StreamEntry{msg.field},
+		result = append(result, &storage.ModStream{
+			Key:     msg.Key,
+			Entries: []*storage.StreamEntry{msg.Field},
 		})
 		return result, nil
 	}
@@ -322,10 +162,10 @@ func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTim
 	for {
 		select {
 		case msg := <-waiterChannel:
-			if msg.field.millisecondsTime > mst[0] || (msg.field.millisecondsTime == mp[msg.key].mst && msg.field.sequenceNumber > mp[msg.key].seq) {
-				result = append(result, &ModStream{
-					Key:     msg.key,
-					Entries: []*StreamEntry{msg.field},
+			if msg.CheckValidNotification(mstMp, seqMp, mst[0]) {
+				result = append(result, &storage.ModStream{
+					Key:     msg.Key,
+					Entries: []*storage.StreamEntry{msg.Field},
 				})
 
 				removeChFromAll()

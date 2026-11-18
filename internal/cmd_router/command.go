@@ -3,6 +3,7 @@ package command
 import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
+	cmd_handlers "github.com/codecrafters-io/redis-starter-go/internal/cmd_router/handlers"
 )
 
 var SimpleOK resp.RESPType = resp.SimpleString("OK")
@@ -14,25 +15,25 @@ func StoreCommandHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPTyp
 	switch cmd.Com {
 
 	case "ECHO", "TYPE", "KEYS":
-		result = generalHandler(cmd, dataStore)
+		result = cmd_handlers.General(cmd, dataStore)
 
 	case "SET", "GET", "INCR":
-		result = stringHandler(cmd, dataStore)
+		result = cmd_handlers.String(cmd, dataStore)
 
 	case "RPUSH", "LPUSH", "LRANGE", "LLEN", "LPOP", "BLPOP":
-		result = listHandler(cmd, dataStore)
+		result = cmd_handlers.List(cmd, dataStore)
 
 	case "XADD", "XRANGE", "XREAD":
-		result = streamHandler(cmd, dataStore)
+		result = cmd_handlers.Stream(cmd, dataStore)
 
 	case "ZADD", "ZRANK", "ZRANGE", "ZCARD", "ZSCORE", "ZREM":
-		result = sortedSetHandler(cmd, dataStore)
+		result = cmd_handlers.Zset(cmd, dataStore)
 
 	case "SETBIT", "GETBIT", "STRLEN", "BITCOUNT", "BITOP":
-		result = bitmapHandler(cmd, dataStore)
+		result = cmd_handlers.Bitmap(cmd, dataStore)
 
 	case "GEOADD":
-		result = geoHandler(cmd, dataStore)
+		result = cmd_handlers.Geospacial(cmd, dataStore)
 
 	default:
 		result = resp.SimpleError("ERR Invalid or Unsupported Command")

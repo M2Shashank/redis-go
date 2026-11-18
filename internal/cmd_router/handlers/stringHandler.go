@@ -1,4 +1,4 @@
-package command
+package handlers
 
 import (
 	"strconv"
@@ -9,7 +9,7 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
-func stringHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
+func String(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	switch cmd.Com {
 
 	case "SET":

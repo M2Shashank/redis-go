@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/codecrafters-io/redis-starter-go/internal/command"
+	"github.com/codecrafters-io/redis-starter-go/internal/cmd_router"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
 

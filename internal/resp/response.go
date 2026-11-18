@@ -1,9 +1,10 @@
 package resp
 
 // Helpers to convert Store types to RESP types.
+// ? File Misplaced
 
 import (
-    "github.com/codecrafters-io/redis-starter-go/internal/store"
+	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
 )
 
 // ArrayToBulkRESP converts a slice of strings to a RESP array of bulk strings.
@@ -31,39 +32,39 @@ func CommandToRESP(cmd *Command) RESPType {
 	return respArray
 }
 
-func StreamEntriesToRESP(entries []*store.StreamEntry) RESPType {
+func StreamEntriesToRESP(entries []*storage.StreamEntry) RESPType {
 	if len(entries) == 0 {
 		return Array(nil)
 	}
-    result := make(Array, 0, len(entries))
+	result := make(Array, 0, len(entries))
 
-    for _, entry := range entries {
-        fields := make(Array, 0, len(entry.Fields)*2)
+	for _, entry := range entries {
+		fields := make(Array, 0, len(entry.Fields)*2)
 
-        for field, value := range entry.Fields {
-            fields = append(fields,
-                BulkString(field),
-                BulkString(value),
-            )
-        }
+		for field, value := range entry.Fields {
+			fields = append(fields,
+				BulkString(field),
+				BulkString(value),
+			)
+		}
 
-        streamEntry := Array{
-            BulkString(entry.ID),
-            fields,
-        }
+		streamEntry := Array{
+			BulkString(entry.ID),
+			fields,
+		}
 
-        result = append(result, streamEntry)
-    }
+		result = append(result, streamEntry)
+	}
 
-    return result
+	return result
 }
 
-func ModStreamToRESP(input *store.ModStream) RESPType {
+func ModStreamToRESP(input *storage.ModStream) RESPType {
 	if input == nil || len(input.Entries) == 0 {
 		return Array(nil)
 	}
 
-	result := Array {
+	result := Array{
 		BulkString(input.Key),
 		StreamEntriesToRESP(input.Entries),
 	}
@@ -71,7 +72,7 @@ func ModStreamToRESP(input *store.ModStream) RESPType {
 	return result
 }
 
-func ModStreamsToRESP(inputs []*store.ModStream) RESPType {
+func ModStreamsToRESP(inputs []*storage.ModStream) RESPType {
 	if len(inputs) == 0 {
 		return Array(nil)
 	}

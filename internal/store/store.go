@@ -18,41 +18,6 @@ func NewStore() *Store {
 	}
 }
 
-func (s *Store) GetKeyVersion(key string) int64 {
-	s.dataMutex.RLock()
-	defer s.dataMutex.RUnlock()
-
-	obj, exists := s.data[key]
-	if !exists {
-		return 0
-	}
-
-	return obj.version
-}
-
-func (s *Store) TypeOf(key string) string {
-	s.dataMutex.RLock()
-	defer s.dataMutex.RUnlock()
-
-	obj, exists := s.data[key]
-	if !exists {
-		return "none"
-	}
-
-	switch obj.Type {
-	case StringType:
-		return "string"
-	case ListType:
-		return "list"
-	case StreamType:
-		return "stream"
-	case SortedSetType:
-		return "zset"
-	default:
-		return "none"
-	}
-}
-
 func (s *Store) LoadRDBIntoStore(rdbFile []byte) {
 	data := rdb_parser.ParseRDBFile(&rdbFile)
 
@@ -77,6 +42,19 @@ func (s *Store) LoadRDBIntoStore(rdbFile []byte) {
 	}
 }
 
+func (s *Store) GetKeyVersion(key string) int64 {
+	s.dataMutex.RLock()
+	defer s.dataMutex.RUnlock()
+
+	obj, exists := s.data[key]
+	if !exists {
+		return 0
+	}
+
+	return obj.version
+}
+
+
 func (s *Store) GetKeysOfPattern(pattern string) []string {
 	s.dataMutex.RLock()
 	defer s.dataMutex.RUnlock()
@@ -86,4 +64,27 @@ func (s *Store) GetKeysOfPattern(pattern string) []string {
 		keys = append(keys, key)
 	}
 	return keys
+}
+
+func (s *Store) TypeOf(key string) string {
+	s.dataMutex.RLock()
+	defer s.dataMutex.RUnlock()
+
+	obj, exists := s.data[key]
+	if !exists {
+		return "none"
+	}
+
+	switch obj.Type {
+	case StringType:
+		return "string"
+	case ListType:
+		return "list"
+	case StreamType:
+		return "stream"
+	case SortedSetType:
+		return "zset"
+	default:
+		return "none"
+	}
 }

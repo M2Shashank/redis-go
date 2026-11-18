@@ -1,7 +1,6 @@
-package command
+package helpers
 
 import (
-	//"errors"
 	"fmt"
 	"strconv"
 	"strings"

@@ -5,38 +5,18 @@ import (
 	"time"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"
+	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
 )
-
-type List struct {
-	Entries *collections.DoublyLL[string]
-	Waiters []chan string
-}
 
 func createListObject() *RedisObject {
 	obj := &RedisObject{
 		Type: ListType,
-		Value: &List{
+		Value: &storage.List{
 			Entries: &collections.DoublyLL[string]{},
 			Waiters: []chan string{},
 		},
 	}
 	return obj
-}
-
-// ----------------- List Operations ---------------------
-
-// to be used when dataMutex is already locked
-// Used for List operations Only. BLPOP
-func (list *List) serveWaiters() {
-	entries, waiters := list.Entries, list.Waiters
-
-	for len(waiters) > 0 && entries.Length > 0 {
-		var ch chan string = waiters[0]
-		waiters = waiters[1:]
-
-		value, _ := entries.PopFront()
-		ch <- value
-	}
 }
 
 // ------------------------------------------------------
@@ -54,7 +34,7 @@ func (s *Store) RPush(key string, values []string) (int, error) {
 		return 0, errors.New("ERR WrongType. NOT A LIST")
 	}
 
-	list := listObj.Value.(*List)
+	list := listObj.Value.(*storage.List)
 	var result = list.Entries.Length + len(values)
 
 	for _, value := range values {
@@ -62,7 +42,7 @@ func (s *Store) RPush(key string, values []string) (int, error) {
 	}
 	listObj.version++
 
-	list.serveWaiters()
+	list.ServeWaiters()
 	return result, nil
 }
 
@@ -79,7 +59,7 @@ func (s *Store) LPush(key string, values []string) (int, error) {
 		return 0, errors.New("ERR WrongType. NOT A LIST")
 	}
 
-	list := listObj.Value.(*List)
+	list := listObj.Value.(*storage.List)
 	var result = list.Entries.Length + len(values)
 
 	for _, value := range values {
@@ -87,7 +67,7 @@ func (s *Store) LPush(key string, values []string) (int, error) {
 	}
 	listObj.version++
 
-	list.serveWaiters()
+	list.ServeWaiters()
 	return result, nil
 }
 
@@ -100,7 +80,7 @@ func (s *Store) LRange(key string, start int, stop int) []string {
 		return []string{}
 	}
 
-	list := obj.Value.(*List).Entries
+	list := obj.Value.(*storage.List).Entries
 
 	if start < 0 {
 		start = list.Length + start
@@ -140,7 +120,7 @@ func (s *Store) LLen(key string) (int, error) {
 		return 0, errors.New("ERR WrongType. NOT A LIST")
 	}
 
-	return obj.Value.(*List).Entries.Length, nil
+	return obj.Value.(*storage.List).Entries.Length, nil
 }
 
 func (s *Store) LPop(key string) (string, error) {
@@ -155,7 +135,7 @@ func (s *Store) LPop(key string) (string, error) {
 		return "", errors.New("ERR WrongType. NOT A LIST")
 	}
 
-	list := obj.Value.(*List)
+	list := obj.Value.(*storage.List)
 	value, err := list.Entries.PopFront()
 	obj.version++
 
@@ -174,7 +154,7 @@ func (s *Store) LPopN(key string, count int) ([]string, error) {
 		return []string{}, errors.New("ERR WrongType. NOT A LIST")
 	}
 
-	list := obj.Value.(*List)
+	list := obj.Value.(*storage.List)
 	var result []string = make([]string, 0, count)
 
 	for i := 0; i < count; i++ {
@@ -203,7 +183,7 @@ func (s *Store) BLPop(key string, timeout float64) (string, error) {
 		return "", errors.New("ERR WrongType. NOT A LIST")
 	}
 
-	list := obj.Value.(*List)
+	list := obj.Value.(*storage.List)
 	if list.Entries.Length > 0 {
 		value, _ := list.Entries.PopFront()
 		obj.version++

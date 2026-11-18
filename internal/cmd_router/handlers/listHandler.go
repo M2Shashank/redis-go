@@ -1,4 +1,4 @@
-package command
+package handlers
 
 import (
 	"strconv"
@@ -7,7 +7,7 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
-func listHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
+func List(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	switch cmd.Com {
 
 	case "RPUSH":

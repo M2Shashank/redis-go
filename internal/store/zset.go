@@ -5,19 +5,13 @@ import (
 	"strconv"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"
+	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
 )
 
-type SortedSet struct {
-	// linked list of values. Map of value to score
-	SetList  *collections.DoublyLL[string]
-	ScoreMap map[string]float64
-	IndexMap map[string]int
-}
-
-func createSortedSetObject(key string) *RedisObject {
+func createSortedSetObject() *RedisObject {
 	obj := &RedisObject{
 		Type: SortedSetType,
-		Value: &SortedSet{
+		Value: &storage.SortedSet{
 			SetList:  &collections.DoublyLL[string]{},
 			ScoreMap: make(map[string]float64),
 			IndexMap: make(map[string]int),
@@ -27,104 +21,6 @@ func createSortedSetObject(key string) *RedisObject {
 	return obj
 }
 
-func (s *SortedSet) greater(s1, s2 string) bool {
-	if s.ScoreMap[s1] == s.ScoreMap[s2] {
-		return s1 > s2
-	}
-	return s.ScoreMap[s1] > s.ScoreMap[s2]
-}
-
-func (s *SortedSet) rebuildIndexMap() {
-	s.IndexMap = make(map[string]int)
-
-	index := 0
-	for node := s.SetList.Head; node != nil; node = node.Next {
-		s.IndexMap[node.Value] = index
-		index++
-	}
-}
-
-func (s *SortedSet) Add(score float64, value string) bool {
-	var returnValue bool = true
-
-	_, exists := s.ScoreMap[value]
-	if exists {
-		if score == s.ScoreMap[value] {
-			return false // no change
-		}
-
-		returnValue = false
-		s.SetList.PopBasedOnValue(value, func(s1, s2 string) bool {
-			return s1 == s2
-		})
-	}
-	s.ScoreMap[value] = score
-
-	curNode := s.SetList.Head
-	index, pushed := 0, false
-	for curNode != nil {
-		if !pushed && s.greater(curNode.Value, value) {
-			s.SetList.PushAtIndex(value, index)
-			pushed = true
-			break
-		}
-		s.IndexMap[curNode.Value] = index
-		curNode = curNode.Next
-		index++
-	}
-	if !pushed {
-		s.SetList.PushBack(value)
-		s.IndexMap[value] = index
-	}
-	s.rebuildIndexMap()
-
-	return returnValue
-}
-
-func (s *SortedSet) GetRange(left, right int) []string {
-	var len int = s.SetList.Length
-	if left < 0 {
-		left = len + left
-	}
-	if right < 0 {
-		right = len + right
-	}
-
-	if left > right || left >= len || right < 0 {
-		return []string{}
-	}
-
-	var listEntries []string = []string{}
-	var index int = 0
-
-	cur := s.SetList.Head
-	for index < left && cur != nil {
-		cur = cur.Next
-		index++
-	}
-
-	for index <= right && cur != nil {
-		listEntries = append(listEntries, cur.Value)
-		cur = cur.Next
-		index++
-	}
-
-	return listEntries
-}
-
-func (s *SortedSet) RemoveValue(value string) bool {
-	_, exists := s.ScoreMap[value]
-	if !exists {
-		return false
-	}
-
-	s.SetList.PopBasedOnValue(value, func(s1, s2 string) bool {
-		return s1 == s2
-	})
-	delete(s.ScoreMap, value)
-	s.rebuildIndexMap()
-	return true
-}
 
 func (s *Store) ZADD(key string, score float64, value string) (bool, error) {
 	s.dataMutex.Lock()
@@ -136,11 +32,11 @@ func (s *Store) ZADD(key string, score float64, value string) (bool, error) {
 	}
 
 	if !exists {
-		s.data[key] = createSortedSetObject(key)
+		s.data[key] = createSortedSetObject()
 		redisObj = s.data[key]
 	}
 
-	sortedSet := redisObj.Value.(*SortedSet)
+	sortedSet := redisObj.Value.(*storage.SortedSet)
 	added := sortedSet.Add(score, value)
 	redisObj.version++
 	return added, nil
@@ -155,7 +51,7 @@ func (s *Store) ZRANK(key, value string) (int, error) {
 		return 0, errors.New("ERR Key does not exist")
 	}
 
-	index, exists := redisObj.Value.(*SortedSet).IndexMap[value]
+	index, exists := redisObj.Value.(*storage.SortedSet).IndexMap[value]
 	if !exists {
 		return 0, errors.New("ERR Value does not exist in the sorted set")
 	}
@@ -172,7 +68,7 @@ func (s *Store) ZRANGE(key string, left, right int) []string {
 		return []string{}
 	}
 
-	sortedSet := SetObj.Value.(*SortedSet)
+	sortedSet := SetObj.Value.(*storage.SortedSet)
 	listRange := sortedSet.GetRange(left, right)
 	return listRange
 }
@@ -186,7 +82,7 @@ func (s *Store) ZCARD(key string) int {
 		return 0
 	}
 
-	sortedSet := SetObj.Value.(*SortedSet)
+	sortedSet := SetObj.Value.(*storage.SortedSet)
 	return sortedSet.SetList.Length
 }
 
@@ -199,7 +95,7 @@ func (s *Store) ZSCORE(key, value string) (string, error) {
 		return "", errors.New("ERR Key does not exist")
 	}
 
-	sortedSet := SetObj.Value.(*SortedSet)
+	sortedSet := SetObj.Value.(*storage.SortedSet)
 	score, exists := sortedSet.ScoreMap[value]
 	if !exists {
 		return "", errors.New("ERR Value does not exist in the sorted set")
@@ -217,7 +113,7 @@ func (s *Store) ZREM(key, value string) (bool, error) {
 		return false, errors.New("ERR Key does not exist")
 	}
 
-	sortedSet := SetObj.Value.(*SortedSet)
+	sortedSet := SetObj.Value.(*storage.SortedSet)
 	done := sortedSet.RemoveValue(value)
 	SetObj.version++
 

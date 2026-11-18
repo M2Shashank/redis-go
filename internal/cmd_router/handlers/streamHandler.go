@@ -1,4 +1,4 @@
-package command
+package handlers
 
 import (
 	"strconv"
@@ -6,9 +6,11 @@ import (
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
+
+	"github.com/codecrafters-io/redis-starter-go/internal/cmd_router/helpers"
 )
 
-func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
+func Stream(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	switch cmd.Com {
 
 	case "XADD":
@@ -42,8 +44,8 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			var start string = cmd.Args[1]
 			var end string = cmd.Args[2]
 
-			startMST, startSeq, err1 := ValidateStreamID(start, "XRANGE")
-			endMST, endSeq, err2 := ValidateStreamID(end, "XRANGE")
+			startMST, startSeq, err1 := helpers.ValidateStreamID(start, "XRANGE")
+			endMST, endSeq, err2 := helpers.ValidateStreamID(end, "XRANGE")
 			if err1 != nil {
 				return resp.SimpleError(err1.Error())
 			}
@@ -108,7 +110,7 @@ func streamHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 					mst[index], seq[index] = -1, -1
 					continue
 				}
-				mstNum, seqNum, err := ValidateStreamID(id, "XREAD")
+				mstNum, seqNum, err := helpers.ValidateStreamID(id, "XREAD")
 				if err != nil {
 					return resp.SimpleError(err.Error())
 				}

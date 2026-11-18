@@ -1,11 +1,11 @@
-package command
+package handlers
 
 import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
-func generalHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
+func General(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	switch cmd.Com {
 
 	case "ECHO":

@@ -1,4 +1,4 @@
-package command
+package handlers
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 )
 
-func geoHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
+func Geospacial(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	switch cmd.Com {
 	case "GEOADD":
 		if len(cmd.Args) < 4 || len(cmd.Args)%3 != 1 {
@@ -28,7 +28,7 @@ func geoHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 				return resp.SimpleError(ErrorStr)
 			}
 
-			added, err := dataStore.GEOADD(cmd.Args[0], longitude, latitude, cmd.Args[i+2])
+			added, err := dataStore.GEOADD(cmd.Args[i-1], longitude, latitude, cmd.Args[i+2])
 			if err != nil {
 				return resp.SimpleError(err.Error())
 			}

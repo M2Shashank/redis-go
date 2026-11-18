@@ -3,28 +3,20 @@ package store
 import (
 	"errors"
 	"strconv"
-)
 
-type String struct {
-	Data   []byte
-	Length int // length of the string in bytes
-}
+	storage "github.com/codecrafters-io/redis-starter-go/internal/store/storage"
+)
 
 func createStringObject() *RedisObject {
 	obj := &RedisObject{
 		Type: StringType,
-		Value: &String{
+		Value: &storage.String{
 			Data:   []byte(""),
 			Length: 0,
 		},
 		version: 0,
 	}
 	return obj
-}
-
-func (s *String) SetData(value string) {
-	s.Data = []byte(value)
-	s.Length = len(value)
 }
 
 // ----------------- String Operations ------------------
@@ -40,7 +32,7 @@ func (s *Store) Get(key string) (string, error) {
 		return "", errors.New("ERR WrongType. NOT A STRING")
 	}
 
-	var ans string = string(obj.Value.(*String).Data)
+	var ans string = string(obj.Value.(*storage.String).Data)
 	return ans, nil
 }
 
@@ -58,7 +50,7 @@ func (s *Store) Set(key string, value string) error {
 		return errors.New("ERR WrongType. NOT A STRING")
 	}
 
-	obj.Value.(*String).SetData(value)
+	obj.Value.(*storage.String).SetData(value)
 	s.data[key].version++
 	return nil
 }
@@ -77,7 +69,7 @@ func (s *Store) Incr(key string) (int, error) {
 	obj, exists := s.data[key]
 	if !exists {
 		s.data[key] = createStringObject()
-		s.data[key].Value.(*String).SetData("1")
+		s.data[key].Value.(*storage.String).SetData("1")
 		s.data[key].version++
 		return 1, nil
 	}
@@ -85,7 +77,7 @@ func (s *Store) Incr(key string) (int, error) {
 		return 0, errors.New("ERR WrongType. NOT A STRING")
 	}
 
-	stringObj := obj.Value.(*String)
+	stringObj := obj.Value.(*storage.String)
 
 	value, err := strconv.Atoi(string(stringObj.Data))
 	if err != nil {
