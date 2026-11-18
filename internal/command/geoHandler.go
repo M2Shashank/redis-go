@@ -15,6 +15,7 @@ func geoHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			return resp.SimpleError("ERR wrong number of arguments for 'geoadd' command")
 		}
 
+		var noOfEntries int = 0
 		for i := 1; i < len(cmd.Args); i += 3 {
 			longitude, err1 := strconv.ParseFloat(cmd.Args[i], 64)
 			latitude, err2 := strconv.ParseFloat(cmd.Args[i+1], 64)
@@ -26,10 +27,16 @@ func geoHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			if err2 != nil || (latitude < -85.05112878 || latitude > +85.05112878) {
 				return resp.SimpleError(ErrorStr)
 			}
-		}
 
-		newEntries := (len(cmd.Args) - 1) / 3
-		return resp.Integer(newEntries)
+			added, err := dataStore.GEOADD(cmd.Args[0], longitude, latitude, cmd.Args[i+2])
+			if err != nil {
+				return resp.SimpleError(err.Error())
+			}
+			if added {
+				noOfEntries++
+			}
+		}
+		return resp.Integer(noOfEntries)
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")
 	}
