@@ -49,7 +49,7 @@ func Geospacial(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 			var curResult resp.RESPType
 			if err != nil {
-				curResult = append(result, resp.Array(nil))
+				curResult = resp.Array(nil)
 			} else {
 				curResult = resp.Array{
 					resp.BulkString(fmt.Sprintf("%f", lon)),
