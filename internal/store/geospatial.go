@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+
+	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
 )
 
 const EARTH_RADIUS_METERS float64 = 6372797.560856
@@ -95,4 +97,23 @@ func (s *Store) GetDistanceMeters(key string, name1, name2 string) (float64, err
 
 	distance := HaversineDistance(lon1, lat1, lon2, lat2)
 	return distance, nil
+}
+
+func (s *Store) GeoSearch(key string, lon, lat, radius float64) []string {
+	redisObj, exists := s.data[key]
+	if !exists {
+		return []string{}
+	}
+
+	zsetObj := redisObj.Value.(*storage.SortedSet)
+
+	var result []string = []string{}
+	for name, score := range zsetObj.ScoreMap {
+		lon2, lat2 := DecodeScore(int64(score))
+		distance := HaversineDistance(lon, lat, lon2, lat2)
+		if distance <= radius {
+			result = append(result, name)
+		}
+	}
+	return result
 }

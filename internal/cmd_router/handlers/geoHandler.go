@@ -72,6 +72,29 @@ func Geospacial(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 		return resp.BulkString(fmt.Sprintf("%f", distance))
 
+	case "GEOSEARCH":
+		// Only implementing for FROMLONLAT , BYRADIUS, m
+		if len(cmd.Args) != 7 || cmd.Args[1] != "FROMLONLAT" || cmd.Args[4] != "BYRADIUS" || cmd.Args[6] != "m" {
+			return resp.SimpleError("ERR wrong number of arguments for 'geosearch' command")
+		}
+
+		lon, err1 := strconv.ParseFloat(cmd.Args[2], 64)
+		lat, err2 := strconv.ParseFloat(cmd.Args[3], 64)
+		radius, err3 := strconv.ParseFloat(cmd.Args[5], 64)
+		if err1 != nil || (lon < -180 || lon > 180) {
+			return resp.SimpleError(fmt.Sprintf("ERR invalid longitude %s", cmd.Args[2]))
+		}
+		if err2 != nil || (lat < -85.05112878 || lat > +85.05112878) {
+			return resp.SimpleError(fmt.Sprintf("ERR invalid latitude %s", cmd.Args[3]))
+		}
+		if err3 != nil || radius < 0 {
+			return resp.SimpleError(fmt.Sprintf("ERR invalid radius %s", cmd.Args[5]))
+		}
+
+		list := dataStore.GeoSearch(cmd.Args[0], lon, lat, radius)
+		result := resp.ArrayToBulkRESP(list)
+		return result
+
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")
 	}

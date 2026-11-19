@@ -32,7 +32,7 @@ func StoreCommandHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPTyp
 	case "SETBIT", "GETBIT", "STRLEN", "BITCOUNT", "BITOP":
 		result = cmd_handlers.Bitmap(cmd, dataStore)
 
-	case "GEOADD", "GEOPOS", "GEODIST":
+	case "GEOADD", "GEOPOS", "GEODIST", "GEOSEARCH":
 		result = cmd_handlers.Geospacial(cmd, dataStore)
 
 	default:
