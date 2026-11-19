@@ -2,13 +2,10 @@ package store
 
 import (
 	"fmt"
+	"strconv"
 )
 
-func (s *Store) GEOADD(key string, lon, lat float64, name string) (bool, error) {
-	score := EncodeScore(lon, lat)
-	fmt.Printf("Encoded Score for (%f, %f) is %d\n", lon, lat, score)
-	return s.ZADD(key, float64(score), name)
-}
+// General helpers
 
 func EncodeScore(lon, lat float64) int64 {
 	// Normalisation to range of [0, 2^26) .
@@ -39,8 +36,27 @@ func DecodeScore(score int64) (float64, float64) {
 	}
 
 	// de-normalisation to thier original range.
-	var lon float64 = float64(intLon)*360/(2<<26) - 180
-	var lat float64 = float64(intLat)*170.10225756/(2<<26) - 85.05112878
+	var lon float64 = float64(intLon)*360/(1<<26) - 180
+	var lat float64 = float64(intLat)*170.10225756/(1<<26) - 85.05112878
 
 	return lon, lat
+}
+
+// --
+
+func (s *Store) AddGeoLocation(key string, lon, lat float64, name string) (bool, error) {
+	score := EncodeScore(lon, lat)
+	fmt.Printf("Encoded Score for (%f, %f) is %d\n", lon, lat, score)
+	return s.ZADD(key, float64(score), name)
+}
+
+func (s *Store) GetLonLat(key string, name string) (float64, float64, error) {
+	score, err := s.ZSCORE(key, name)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	scr, _ := strconv.ParseInt(score, 10, 64)
+	lon, lat := DecodeScore(scr)
+	return lon, lat, nil
 }

@@ -28,7 +28,7 @@ func Geospacial(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 				return resp.SimpleError(ErrorStr)
 			}
 
-			added, err := dataStore.GEOADD(cmd.Args[i-1], longitude, latitude, cmd.Args[i+2])
+			added, err := dataStore.AddGeoLocation(cmd.Args[i-1], longitude, latitude, cmd.Args[i+2])
 			if err != nil {
 				return resp.SimpleError(err.Error())
 			}
@@ -37,6 +37,29 @@ func Geospacial(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			}
 		}
 		return resp.Integer(noOfEntries)
+
+	case "GEOPOS":
+		if len(cmd.Args) < 2 {
+			return resp.SimpleError("ERR wrong number of arguments for 'geopos' command")
+		}
+
+		result := resp.Array{}
+		for i := 1; i < len(cmd.Args); i++ {
+			lon, lat, err := dataStore.GetLonLat(cmd.Args[0], cmd.Args[i])
+
+			var curResult resp.RESPType
+			if err != nil {
+				curResult = append(result, resp.Array(nil))
+			} else {
+				curResult = resp.Array{
+					resp.BulkString(fmt.Sprintf("%f", lon)),
+					resp.BulkString(fmt.Sprintf("%f", lat)),
+				}
+			}
+			result = append(result, curResult)
+		}
+		return result
+
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")
 	}
