@@ -60,6 +60,18 @@ func Geospacial(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		}
 		return result
 
+	case "GEODIST":
+		if len(cmd.Args) != 3 {
+			return resp.SimpleError("ERR wrong number of arguments for 'geodist' command")
+		}
+
+		distance, err := dataStore.GetDistanceMeters(cmd.Args[0], cmd.Args[1], cmd.Args[2])
+		if err != nil {
+			return resp.SimpleError(err.Error())
+		}
+
+		return resp.BulkString(fmt.Sprintf("%f", distance))
+
 	default:
 		return resp.SimpleError("ERR Invalid or Unsupported Command")
 	}

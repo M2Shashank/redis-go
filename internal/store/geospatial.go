@@ -1,9 +1,13 @@
 package store
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"strconv"
 )
+
+const EARTH_RADIUS_METERS float64 = 6372797.560856
 
 const MIN_LONGITUDE float64 = -180.0
 const MAX_LONGITUDE float64 = 180.0
@@ -45,11 +49,22 @@ func DecodeScore(score int64) (float64, float64) {
 
 	// de-normalisation to thier original range.
 	min_lon := MIN_LONGITUDE + (float64(intLon)*LONGITUTE_RANGE)/(1<<26)
-	max_lon := MIN_LONGITUDE + (float64(intLon + 1)*LONGITUTE_RANGE)/(1<<26)
+	max_lon := MIN_LONGITUDE + (float64(intLon+1)*LONGITUTE_RANGE)/(1<<26)
 	min_lat := MIN_LATITUDE + (float64(intLat)*LATITUDE_RANGE)/(1<<26)
-	max_lat := MIN_LATITUDE + (float64(intLat + 1)*LATITUDE_RANGE)/(1<<26)
+	max_lat := MIN_LATITUDE + (float64(intLat+1)*LATITUDE_RANGE)/(1<<26)
 
 	return (min_lon + max_lon) / 2, (min_lat + max_lat) / 2
+}
+
+func HaversineDistance(lon1, lat1, lon2, lat2 float64) float64 {
+	lonRad1, latRad1 := lon1*math.Pi/180, lat1*math.Pi/180
+	lonRad2, latRad2 := lon2*math.Pi/180, lat2*math.Pi/180
+
+	deltaLon, deltaLat := lonRad2-lonRad1, latRad2-latRad1
+
+	a := math.Sin(deltaLat/2)*math.Sin(deltaLat/2) + math.Cos(latRad1)*math.Cos(latRad2)*math.Sin(deltaLon/2)*math.Sin(deltaLon/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	return EARTH_RADIUS_METERS * c
 }
 
 // --
@@ -69,4 +84,15 @@ func (s *Store) GetLonLat(key string, name string) (float64, float64, error) {
 	scr, _ := strconv.ParseInt(score, 10, 64)
 	lon, lat := DecodeScore(scr)
 	return lon, lat, nil
+}
+
+func (s *Store) GetDistanceMeters(key string, name1, name2 string) (float64, error) {
+	lon1, lat1, err1 := s.GetLonLat(key, name1)
+	lon2, lat2, err2 := s.GetLonLat(key, name2)
+	if err1 != nil || err2 != nil {
+		return 0, errors.New("ERR one or both members do not exist in the sorted set")
+	}
+
+	distance := HaversineDistance(lon1, lat1, lon2, lat2)
+	return distance, nil
 }
