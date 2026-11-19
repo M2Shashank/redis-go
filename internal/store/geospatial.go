@@ -5,12 +5,20 @@ import (
 	"strconv"
 )
 
+const MIN_LONGITUDE float64 = -180.0
+const MAX_LONGITUDE float64 = 180.0
+const MIN_LATITUDE float64 = -85.05112878
+const MAX_LATITUDE float64 = 85.05112878
+
+const LONGITUTE_RANGE float64 = MAX_LONGITUDE - MIN_LONGITUDE
+const LATITUDE_RANGE float64 = MAX_LATITUDE - MIN_LATITUDE
+
 // General helpers
 
 func EncodeScore(lon, lat float64) int64 {
 	// Normalisation to range of [0, 2^26) .
-	normalisedLon := (1 << 26) * (lon + 180) / 360
-	normalisedLat := (1 << 26) * (lat + 85.05112878) / 170.10225756
+	normalisedLon := (1 << 26) * (lon - MIN_LONGITUDE) / LONGITUTE_RANGE
+	normalisedLat := (1 << 26) * (lat - MIN_LATITUDE) / LATITUDE_RANGE
 
 	// Converted to 26 bit Integers
 	var intLon int32 = int32(normalisedLon)
@@ -36,10 +44,12 @@ func DecodeScore(score int64) (float64, float64) {
 	}
 
 	// de-normalisation to thier original range.
-	var lon float64 = float64(intLon)*360/(1<<26) - 180
-	var lat float64 = float64(intLat)*170.10225756/(1<<26) - 85.05112878
+	min_lon := MIN_LONGITUDE + (float64(intLon)*LONGITUTE_RANGE)/(1<<26)
+	max_lon := MIN_LONGITUDE + (float64(intLon + 1)*LONGITUTE_RANGE)/(1<<26)
+	min_lat := MIN_LATITUDE + (float64(intLat)*LATITUDE_RANGE)/(1<<26)
+	max_lat := MIN_LATITUDE + (float64(intLat + 1)*LATITUDE_RANGE)/(1<<26)
 
-	return lon, lat
+	return (min_lon + max_lon) / 2, (min_lat + max_lat) / 2
 }
 
 // --
