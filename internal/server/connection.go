@@ -3,7 +3,7 @@ package server
 import (
 	"fmt"
 
-	"github.com/codecrafters-io/redis-starter-go/internal/cmd_router"
+	command "github.com/codecrafters-io/redis-starter-go/internal/cmd_router"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
 
@@ -141,7 +141,7 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 		case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
 			// Transaction Commands handled by Client
 			result = client.TransactionHandler(cmd)
-		case "AUTH":
+		case "ACL":
 			// Authentication command handled by Client
 			result = AuthHandler(client, cmd)
 
@@ -169,4 +169,3 @@ func ValidateSubscriberPermissions(commandName string) bool {
 		return false
 	}
 }
-	
