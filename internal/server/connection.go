@@ -141,6 +141,9 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 		case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
 			// Transaction Commands handled by Client
 			result = client.TransactionHandler(cmd)
+		case "AUTH":
+			// Authentication command handled by Client
+			result = AuthHandler(client, cmd)
 
 		default:
 			// All other commands handled by (Command package)

@@ -16,6 +16,7 @@ type Client struct {
 	Conn   net.Conn
 	Server *Server
 	Id     string
+	Username string
 
 	WriteChannel chan []byte 
 	// buffered channel to write data to client. 
@@ -37,6 +38,8 @@ func NewClient(conn net.Conn, server *Server) *Client {
 		watchedKeys:   make(map[string]int64),
 		inTransaction: false,
 		WriteChannel: make(chan []byte, 1000),
+
+		Username: "default",
 	}
 
 	go client.WriteLoop()
