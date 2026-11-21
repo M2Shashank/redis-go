@@ -11,7 +11,7 @@ func AuthHandler(client *Client, cmd *resp.Command) resp.RESPType {
 			return resp.SimpleError("ERR wrong number of arguments for 'ACL' command")
 		}
 
-		return resp.SimpleString(client.Username)
+		return resp.BulkString(client.Username)
 
 	default:
 		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
