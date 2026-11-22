@@ -2,6 +2,7 @@ package auth
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 )
 
 type AuthUser struct {
@@ -63,6 +64,7 @@ func (m *AuthManager) GetUserPswds(username string) []string {
 
 func (m *AuthManager) SetUserPassword(username string, password string) {
 	passHash := sha256.Sum256([]byte(password))
-	m.Users[username].Passwords[string(passHash[:])] = true
+	hexHash := hex.EncodeToString(passHash[:])
+	m.Users[username].Passwords[hexHash] = true
 	m.Users[username].Flags["nopass"] = false
 }
