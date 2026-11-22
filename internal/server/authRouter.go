@@ -38,7 +38,7 @@ func (s *Server) AuthHandler(clientName string, cmd *resp.Command) resp.RESPType
 		case "SETUSER":
 			var username string = cmd.Args[1]
 			var pswd string = cmd.Args[2]
-			if pswd == ">" {
+			if pswd[0] == '>' {
 				s.Auth.SetUserPassword(username, pswd[1:])
 				return resp.SimpleString("OK")
 			}
