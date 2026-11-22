@@ -39,20 +39,24 @@ func (m *AuthManager) GetUserFlags(username string) []string {
 		return []string{}
 	}
 	flags := []string{}
-	for flag := range user.Flags {
-		flags = append(flags, flag)
+	for flag, present := range user.Flags {
+		if present {
+			flags = append(flags, flag)
+		}
 	}
 	return flags
 }
 
 func (m *AuthManager) GetUserPswds(username string) []string {
-	user := m.Users[username]	
+	user := m.Users[username]
 	if user == nil {
 		return []string{}
 	}
 	passwords := []string{}
-	for password := range user.Passwords {
-		passwords = append(passwords, password)
+	for password, valid := range user.Passwords {
+		if valid {
+			passwords = append(passwords, password)
+		}
 	}
 	return passwords
 }
