@@ -12,6 +12,7 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 
 	pubsub "github.com/codecrafters-io/redis-starter-go/internal/server/pubsub"
+	auth "github.com/codecrafters-io/redis-starter-go/internal/server/authorisation"
 )
 
 type Server struct {
@@ -26,6 +27,9 @@ type Server struct {
 
 	// Persistence Manager, Persistence related fields
 	Persistence *persistence.Manager
+
+	// Authorisation Manager
+	Auth *auth.AuthManager
 
 	// PubSub Manger
 	Pubsub *pubsub.Manager
@@ -68,6 +72,7 @@ func NewServer(flags []string) *Server {
 		Persistence:   persistenceManager,
 		Pubsub:        pubSub,
 		Clients:       make(map[string]*Client),
+		Auth:          auth.NewAuthManager(),
 	}
 
 	// Replays AOF file recieved from persistence manager to the store

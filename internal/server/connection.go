@@ -127,6 +127,9 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 	case "CONFIG":
 		// Config commands handled by PersistenceManager.
 		result = client.Server.PersistenceHandler(cmd)
+	case "AUTH", "ACL":
+		// Auth commands handled by AuthManager.
+		result = client.Server.AuthHandler(client.Username, cmd)
 	default:
 		// client handled commands
 		if client.InSubscribedMode() {
@@ -141,9 +144,6 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 		case "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
 			// Transaction Commands handled by Client
 			result = client.TransactionHandler(cmd)
-		case "ACL":
-			// Authentication command handled by Client
-			result = AuthHandler(client, cmd)
 
 		default:
 			// All other commands handled by (Command package)
