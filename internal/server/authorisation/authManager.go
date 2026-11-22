@@ -68,3 +68,19 @@ func (m *AuthManager) SetUserPassword(username string, password string) {
 	m.Users[username].Passwords[hexHash] = true
 	m.Users[username].Flags["nopass"] = false
 }
+
+func (m *AuthManager) ValidateCredentials(username string, password string) bool {
+	user := m.Users[username]
+	if user == nil {
+		return false
+	}
+
+	passHash := sha256.Sum256([]byte(password))
+	hexHash := hex.EncodeToString(passHash[:])
+
+	if user.Passwords[hexHash] {
+		return true
+	}
+
+	return false
+}

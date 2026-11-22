@@ -43,6 +43,18 @@ func (s *Server) AuthHandler(clientName string, cmd *resp.Command) resp.RESPType
 				return resp.SimpleString("OK")
 			}
 		}
+
+	case "AUTH":
+		if len(cmd.Args) != 2 {
+			return resp.SimpleError("ERR wrong number of arguments for 'AUTH' command")
+		}
+
+		valid := s.Auth.ValidateCredentials(cmd.Args[0], cmd.Args[1])
+		if !valid {
+			return resp.SimpleError("WRONGPASS invalid username-password pair or user is disabled.")
+		}
+
+		return resp.SimpleString("OK")
 	}
 	return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
 }
