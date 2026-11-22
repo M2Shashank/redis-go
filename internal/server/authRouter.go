@@ -21,7 +21,9 @@ func (s *Server) AuthHandler(username string, cmd *resp.Command) resp.RESPType {
 
 			result := resp.Array{
 				resp.BulkString("flags"),
-				resp.Array{},
+				resp.Array{
+					resp.BulkString("nopass"),
+				},
 			}
 			return result
 		default:
