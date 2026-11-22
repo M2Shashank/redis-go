@@ -4,7 +4,7 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
 
-func (s *Server) AuthHandler(username string, cmd *resp.Command) resp.RESPType {
+func (s *Server) AuthHandler(clientName string, cmd *resp.Command) resp.RESPType {
 	switch cmd.Com {
 	case "ACL":
 		if len(cmd.Args) < 1 {
@@ -13,26 +13,36 @@ func (s *Server) AuthHandler(username string, cmd *resp.Command) resp.RESPType {
 
 		switch cmd.Args[0] {
 		case "WHOAMI":
-			return resp.BulkString(username)
+			return resp.BulkString(clientName)
 		case "GETUSER":
 			if len(cmd.Args) != 2 {
 				return resp.SimpleError("ERR wrong number of arguments for 'GETUSER' command")
 			}
 
+			var flagsResp resp.Array = resp.Array{}
+			for _, flag := range s.Auth.GetUserFlags(cmd.Args[1]) {
+				flagsResp = append(flagsResp, resp.BulkString(flag))
+			}
+			var pswdsResp resp.Array = resp.Array{}
+			for _, pswd := range s.Auth.GetUserPswds(cmd.Args[1]) {
+				pswdsResp = append(pswdsResp, resp.BulkString(pswd))
+			}
+
 			result := resp.Array{
 				resp.BulkString("flags"),
-				resp.Array{
-					resp.BulkString("nopass"),
-				},
+				flagsResp,
 				resp.BulkString("passwords"),
-				resp.Array{},
+				pswdsResp,
 			}
 			return result
-		default:
-			return resp.SimpleError("ERR unknown ACL subcommand '" + cmd.Args[0] + "'")
+		case "SETUSER":
+			var username string = cmd.Args[1]
+			var pswd string = cmd.Args[2]
+			if pswd == ">" {
+				s.Auth.SetUserPassword(username, pswd[1:])
+				return resp.SimpleString("OK")
+			}
 		}
-
-	default:
-		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
 	}
+	return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
 }
