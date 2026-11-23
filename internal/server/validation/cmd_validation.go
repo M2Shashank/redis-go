@@ -23,11 +23,11 @@ func ValidateCmdArguments(cmd *resp.Command) error {
 		if str != "ACK" && str != "LISTENING-PORT" && str != "CAPA" && str != "GETACK" {
 			return Error.NewInvalidSyntaxError("replconf")
 		}
-	case "INFO", "PING":
+	case "INFO", "PING", "UNWATCH", "MULTI", "EXEC", "DISCARD":
 		if len(cmd.Args) > 1 {
 			return Error.NewInvalidSyntaxError(cmd.Com)
 		}
-	case "SUBSCRIBE", "UNSUBSCRIBE", "WATCH", "UNWATCH", "MULTI", "EXEC", "DISCARD":
+	case "SUBSCRIBE", "UNSUBSCRIBE", "WATCH":
 		if len(cmd.Args) < 1 {
 			return Error.NewInvalidSyntaxError(cmd.Com)
 		}
