@@ -110,7 +110,7 @@ func HandleMasterConn(client *Client) {
 // Routes commands based on server type (master/slave) and command type (replication, server, transaction, etc.)
 // Command Package's ExecuteCommand executes only client side commands
 func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
-	if !client.Authenticated && cmd.Com != "AUTH" && cmd.Com != "ACL" {
+	if !client.Authenticated {
 		return resp.SimpleError("NOAUTH Authentication required.")
 	}
 
