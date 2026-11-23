@@ -58,7 +58,7 @@ func (c *Client) HandleExec() resp.RESPType {
 		return resp.SimpleError(Error.ERR_EXEC_WITHOUT_MULTI.Error())
 	}
 
-	if !c.TransactionManager.IsInTransaction() {
+	if !c.isValidTransaction() {
 		c.clearTransactionState()
 		return resp.Array(nil)
 	}
