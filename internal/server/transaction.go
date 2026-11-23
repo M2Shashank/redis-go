@@ -3,6 +3,8 @@ package server
 import (
 	"github.com/codecrafters-io/redis-starter-go/internal/cmd_router"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
+
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 // ------ Transaction Commands Implementation -------
@@ -22,12 +24,13 @@ func (client *Client) TransactionHandler(cmd *resp.Command) resp.RESPType {
 	case "DISCARD":
 		return client.HandleDiscard()
 	}
-	return resp.SimpleError("ERR unknown command")
+
+	return resp.SimpleError(Error.ERR_INVALID.Error())
 }
 
 func (c *Client) HandleWatch(cmd *resp.Command) resp.RESPType {
 	if c.inTransaction {
-		return resp.SimpleError("ERR WATCH inside MULTI is not allowed")
+		return resp.SimpleError(Error.ERR_WATCH_INSIDE_MULTI.Error())
 	}
 
 	for _, key := range cmd.Args {
@@ -43,7 +46,7 @@ func (c *Client) HandleUnwatch() resp.RESPType {
 
 func (c *Client) HandleMulti() resp.RESPType {
 	if c.inTransaction {
-		return resp.SimpleError("ERR MULTI calls can not be nested")
+		return resp.SimpleError(Error.ERR_MULTI_NESTED.Error())
 	}
 
 	c.inTransaction = true
@@ -52,7 +55,7 @@ func (c *Client) HandleMulti() resp.RESPType {
 
 func (c *Client) HandleExec() resp.RESPType {
 	if !c.inTransaction {
-		return resp.SimpleError("ERR EXEC without MULTI")
+		return resp.SimpleError(Error.ERR_EXEC_WITHOUT_MULTI.Error())
 	}
 
 	if !c.isValidTransaction() {
@@ -72,7 +75,7 @@ func (c *Client) HandleExec() resp.RESPType {
 
 func (c *Client) HandleDiscard() resp.RESPType {
 	if !c.inTransaction {
-		return resp.SimpleError("ERR DISCARD without MULTI")
+		return resp.SimpleError(Error.ERR_DISCARD_WITHOUT_MULTI.Error())
 	}
 
 	c.clearTransactionState()

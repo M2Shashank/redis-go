@@ -2,8 +2,6 @@ package persistence
 
 import (
 	"path/filepath"
-
-	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
 
 type Manager struct {
@@ -45,44 +43,25 @@ func NewPersistenceManager(flags []string) (*Manager, []byte) {
 	}, fileData
 }
 
-func (m *Manager) PersistanceHandler(cmd *resp.Command) resp.RESPType {
-	var result resp.RESPType
-	switch cmd.Com {
+func (m *Manager) HandleConfigGET(cmdType string) []string {
+	var temp []string = []string{cmdType}
 
-	case "CONFIG":
-		if len(cmd.Args) != 2 {
-			return resp.SimpleError("ERR wrong number of arguments for 'CONFIG' command")
-		}
-
-		var typeOf string = cmd.Args[0]
-		if typeOf != "GET" {
-			return resp.SimpleError("ERR unknown subcommand '" + typeOf + "' for 'CONFIG' command")
-		}
-
-		var temp []string = []string{cmd.Args[1]}
-
-		switch cmd.Args[1] {
-		case "dir":
-			temp = append(temp, m.Dir)
-		case "dbfilename":
-			temp = append(temp, m.Dbfilename)
-		case "appendonly":
-			temp = append(temp, m.Appendonly)
-		case "appenddirname":
-			temp = append(temp, m.Appenddirname)
-		case "appendfilename":
-			temp = append(temp, m.Appendfilename)
-		case "appendfsync":
-			temp = append(temp, m.Appendfsync)
-		}
-
-		result = resp.ArrayToBulkRESP(temp)
-
-	default:
-		result = resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
-
+	switch cmdType {
+	case "dir":
+		temp = append(temp, m.Dir)
+	case "dbfilename":
+		temp = append(temp, m.Dbfilename)
+	case "appendonly":
+		temp = append(temp, m.Appendonly)
+	case "appenddirname":
+		temp = append(temp, m.Appenddirname)
+	case "appendfilename":
+		temp = append(temp, m.Appendfilename)
+	case "appendfsync":
+		temp = append(temp, m.Appendfsync)
 	}
-	return result
+
+	return temp
 }
 
 func (m *Manager) FlushWriteCommandToAOF(cmd []byte) {

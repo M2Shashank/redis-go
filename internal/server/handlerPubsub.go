@@ -2,11 +2,12 @@ package server
 
 import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
+
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 func (s *Server) PubSubHandler(cmd *resp.Command, clientId string) resp.RESPType {
 	switch cmd.Com {
-
 	case "PING":
 		var result resp.RESPType
 		if s.Pubsub.InSubsciberMode[clientId] {
@@ -20,10 +21,6 @@ func (s *Server) PubSubHandler(cmd *resp.Command, clientId string) resp.RESPType
 		return result
 
 	case "SUBSCRIBE":
-		if len(cmd.Args) <= 0 {
-			return resp.SimpleError("ERR wrong number of arguments for 'subscribe' command")
-		}
-
 		result := resp.Array{}
 		for _, ch := range cmd.Args {
 			n := s.Pubsub.SubscribeTo(ch, clientId)
@@ -38,10 +35,6 @@ func (s *Server) PubSubHandler(cmd *resp.Command, clientId string) resp.RESPType
 		return result
 
 	case "UNSUBSCRIBE":
-		if len(cmd.Args) <= 0 {
-			return resp.SimpleError("ERR wrong number of arguments for 'unsubscribe' command")
-		}
-
 		result := resp.Array{}
 		for _, ch := range cmd.Args {
 			n := s.Pubsub.UnsubscribeFrom(ch, clientId)
@@ -55,10 +48,6 @@ func (s *Server) PubSubHandler(cmd *resp.Command, clientId string) resp.RESPType
 		return result
 
 	case "PUBLISH":
-		if len(cmd.Args) != 2 {
-			return resp.SimpleError("ERR wrong number of arguments for 'publish' command")
-		}
-
 		mssg := resp.Array{
 			resp.BulkString("message"),
 			resp.BulkString(cmd.Args[0]),
@@ -73,9 +62,7 @@ func (s *Server) PubSubHandler(cmd *resp.Command, clientId string) resp.RESPType
 		}
 
 		return resp.Integer(n)
-
-	default:
-		return resp.SimpleError("ERR unknown command")
-
 	}
+
+	return resp.SimpleError(Error.ERR_INVALID.Error())
 }

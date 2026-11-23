@@ -2,9 +2,13 @@ package server
 
 import (
 	"fmt"
+	"strings"
+
+	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 
 	command "github.com/codecrafters-io/redis-starter-go/internal/cmd_router"
-	"github.com/codecrafters-io/redis-starter-go/internal/resp"
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
+	validation "github.com/codecrafters-io/redis-starter-go/internal/server/validation"
 )
 
 // used by both master and slave to handle client connections
@@ -110,12 +114,19 @@ func HandleMasterConn(client *Client) {
 // Routes commands based on server type (master/slave) and command type (replication, server, transaction, etc.)
 // Command Package's ExecuteCommand executes only client side commands
 func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
+	err := validation.ValidateCmdArguments(cmd)
+	if err != nil {
+		// Multi and Exec can be discarded if invalid command is sent.
+		// Not implemented yet.
+		return resp.SimpleError(err.Error())
+	}
+
 	if !client.Authenticated && cmd.Com != "AUTH" {
-		return resp.SimpleError("NOAUTH Authentication required.")
+		return resp.SimpleError(Error.ERR_NOAUTH.Error())
 	}
 
 	var result resp.RESPType
-	switch cmd.Com {
+	switch strings.ToUpper(cmd.Com) {
 
 	case "PSYNC", "WAIT":
 		// PSYNC sent by slave, WAIT sent by client.
@@ -143,7 +154,8 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 		if client.InSubscribedMode() {
 			perm := ValidateSubscriberPermissions(cmd.Com)
 			if !perm {
-				result = resp.SimpleError("ERR Can't execute '" + cmd.Com + "': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context")
+				err := Error.ERRPermissionDenied(cmd.Com)
+				result = resp.SimpleError(err.Error())
 				break
 			}
 		}

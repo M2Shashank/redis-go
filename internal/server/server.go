@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
-	persistence "github.com/codecrafters-io/redis-starter-go/internal/server/persistence"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 
+	persistence "github.com/codecrafters-io/redis-starter-go/internal/server/persistence"
 	pubsub "github.com/codecrafters-io/redis-starter-go/internal/server/pubsub"
 	auth "github.com/codecrafters-io/redis-starter-go/internal/server/authorisation"
 )
@@ -135,42 +135,19 @@ func Start(addr string, flags []string) {
 	}
 }
 
-func (server *Server) ReplayAOFToStore(aofFileData []byte) {
-	if len(aofFileData) == 0 || aofFileData == nil {
-		return
-	}
-
-	// Nil connection client for executing commands
-	replayClient := NewClient(nil, server)
-
-	for {
-		n, cmd := resp.ParseRESPCommand(aofFileData)
-		if cmd == nil || n == 0 {
-			break
-		}
-
-		_ = replayClient.ExecuteCommand(cmd)
-		aofFileData = aofFileData[n:]
-	}
-}
-
 // Command Handlers for Server related commands. 
 // Delegated to appropriate managers based on command type and server role.
 
 func (server *Server) ServerCommandHandler(cmd *resp.Command) resp.RESPType {
 	switch cmd.Com {
 	case "INFO":
-		return InfoHandler(server)
+		return server.InfoHandler()
 	case "REPLCONF":
 		return server.ReplconfHandler(cmd, nil)
 
 	default:
 		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
 	}
-}
-
-func (server *Server) PersistenceHandler(cmd *resp.Command) resp.RESPType {
-	return server.Persistence.PersistanceHandler(cmd)
 }
 
 // ************************* Command Handlers ********************************
@@ -186,9 +163,6 @@ func (server *Server) PersistenceHandler(cmd *resp.Command) resp.RESPType {
 // if server is slave -> valid commands are only 1 (sent by master). command 4 is sent as response as bulkarray [handler called by HandleMasterConn function for 1]
 func (s *Server) ReplconfHandler(cmd *resp.Command, client *Client) resp.RESPType {
 	// client is the one which sent the REPLCONF command.
-	if len(cmd.Args) < 2 {
-		return resp.SimpleError("ERR wrong number of arguments for 'REPLCONF' command")
-	}
 
 	var result resp.RESPType = resp.SimpleString("OK")
 	switch strings.ToUpper(cmd.Args[0]) {
@@ -205,12 +179,12 @@ func (s *Server) ReplconfHandler(cmd *resp.Command, client *Client) resp.RESPTyp
 	return result
 }
 
-func InfoHandler(server *Server) resp.RESPType {
+func (s *Server) InfoHandler() resp.RESPType {
 	var replInfo map[string]string
-	if server.Role == "master" {
-		replInfo = server.MasterManager.Info()
+	if s.Role == "master" {
+		replInfo = s.MasterManager.Info()
 	} else {
-		replInfo = server.SlaveManager.Info()
+		replInfo = s.SlaveManager.Info()
 	}
 
 	info := strings.Builder{}

@@ -2,23 +2,17 @@ package server
 
 import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
+
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 func (s *Server) AuthHandler(clientName string, cmd *resp.Command) resp.RESPType {
 	switch cmd.Com {
 	case "ACL":
-		if len(cmd.Args) < 1 {
-			return resp.SimpleError("ERR wrong number of arguments for 'ACL' command")
-		}
-
 		switch cmd.Args[0] {
 		case "WHOAMI":
 			return resp.BulkString(clientName)
 		case "GETUSER":
-			if len(cmd.Args) != 2 {
-				return resp.SimpleError("ERR wrong number of arguments for 'GETUSER' command")
-			}
-
 			var flagsResp resp.Array = resp.Array{}
 			for _, flag := range s.Auth.GetUserFlags(cmd.Args[1]) {
 				flagsResp = append(flagsResp, resp.BulkString(flag))
@@ -45,18 +39,15 @@ func (s *Server) AuthHandler(clientName string, cmd *resp.Command) resp.RESPType
 		}
 
 	case "AUTH":
-		if len(cmd.Args) != 2 {
-			return resp.SimpleError("ERR wrong number of arguments for 'AUTH' command")
-		}
-
 		valid := s.Auth.ValidateCredentials(cmd.Args[0], cmd.Args[1])
 		if !valid {
-			return resp.SimpleError("WRONGPASS invalid username-password pair or user is disabled.")
+			return resp.SimpleError(Error.ERR_WRONGPASS.Error())
 		}
 
 		return resp.SimpleString("OK")
 	}
-	return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
+
+	return resp.SimpleError(Error.ERR_INVALID.Error())
 }
 
 func (s *Server) AuthVerdict(username string) bool {

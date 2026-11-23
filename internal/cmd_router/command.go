@@ -3,7 +3,9 @@ package command
 import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
+
 	cmd_handlers "github.com/codecrafters-io/redis-starter-go/internal/cmd_router/handlers"
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 var SimpleOK resp.RESPType = resp.SimpleString("OK")
@@ -36,7 +38,7 @@ func StoreCommandHandler(cmd *resp.Command, dataStore *store.Store) resp.RESPTyp
 		result = cmd_handlers.Geospacial(cmd, dataStore)
 
 	default:
-		result = resp.SimpleError("ERR Invalid or Unsupported Command")
+		result = resp.SimpleError(Error.ERR_INVALID.Error())
 
 	}
 

@@ -8,17 +8,13 @@ import (
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
 
 	helpers "github.com/codecrafters-io/redis-starter-go/internal/cmd_router/helpers"
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 func Stream(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	switch cmd.Com {
-
 	case "XADD":
 		{
-			if len(cmd.Args) < 3 || len(cmd.Args)%2 != 0 {
-				return resp.SimpleError("ERR Invalid Arguments for XADD command")
-			}
-
 			var key string = cmd.Args[0]
 			var ID string = cmd.Args[1]
 			var fields map[string]string = make(map[string]string)
@@ -36,10 +32,6 @@ func Stream(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 	case "XRANGE":
 		{
-			if len(cmd.Args) != 3 {
-				return resp.SimpleError("ERR Invalid Arguments for XRANGE command")
-			}
-
 			var key string = cmd.Args[0]
 			var start string = cmd.Args[1]
 			var end string = cmd.Args[2]
@@ -75,10 +67,6 @@ func Stream(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	case "XREAD":
 		{
 			var length int = len(cmd.Args)
-			if length < 3 || length%2 != 1 {
-				return resp.SimpleError("ERR Invalid Arguments for XREAD command")
-			}
-
 			var expiryTime int64 = -1
 			if strings.ToUpper(cmd.Args[0]) == "BLOCK" {
 				time, err := strconv.ParseInt(cmd.Args[1], 10, 64)
@@ -129,9 +117,7 @@ func Stream(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			response := resp.ModStreamsToRESP(result)
 			return response
 		}
-
-	default:
-		return resp.SimpleError("ERR Invalid or Unsupported Command")
-
 	}
+
+	return resp.SimpleError(Error.ERR_INVALID.Error())
 }

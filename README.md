@@ -34,13 +34,12 @@ Note: This section is for stages 2 and beyond.
 
 
 # Notes for Myself
-Things to Restructure or Modify
+Things to Modify
 
 1. set with expiry has bugs. New set, invalidates earlier
 2. BLPOP connection channels need to be popped of the map if clients disconnects
-5. Draw LLD 
 6. Validate the command before queueing - Transactions
-7. Inconsistency in the command execution. In mastercommandhandler
-8. If file exists, read the commands from the aof, and execute. if file exists, it is sent to persistence
-9. remove the strong coupling of server and client somehow
-10.
+9. remove the strong coupling of server and client somehow. Is it required ?
+10. Rdb file contents can be restructured, seperate expiry keys from others and handle in store. 
+ Parser can be moved to resp as a result ig
+11. 

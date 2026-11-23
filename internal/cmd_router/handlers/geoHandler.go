@@ -6,15 +6,13 @@ import (
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
+
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 func Geospacial(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	switch cmd.Com {
 	case "GEOADD":
-		if len(cmd.Args) < 4 || len(cmd.Args)%3 != 1 {
-			return resp.SimpleError("ERR wrong number of arguments for 'geoadd' command")
-		}
-
 		var noOfEntries int = 0
 		for i := 1; i < len(cmd.Args); i += 3 {
 			longitude, err1 := strconv.ParseFloat(cmd.Args[i], 64)
@@ -39,10 +37,6 @@ func Geospacial(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		return resp.Integer(noOfEntries)
 
 	case "GEOPOS":
-		if len(cmd.Args) < 2 {
-			return resp.SimpleError("ERR wrong number of arguments for 'geopos' command")
-		}
-
 		result := resp.Array{}
 		for i := 1; i < len(cmd.Args); i++ {
 			lon, lat, err := dataStore.GetLonLat(cmd.Args[0], cmd.Args[i])
@@ -61,10 +55,6 @@ func Geospacial(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		return result
 
 	case "GEODIST":
-		if len(cmd.Args) != 3 {
-			return resp.SimpleError("ERR wrong number of arguments for 'geodist' command")
-		}
-
 		distance, err := dataStore.GetDistanceMeters(cmd.Args[0], cmd.Args[1], cmd.Args[2])
 		if err != nil {
 			return resp.SimpleError(err.Error())
@@ -74,10 +64,6 @@ func Geospacial(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 
 	case "GEOSEARCH":
 		// Only implementing for FROMLONLAT , BYRADIUS, m
-		if len(cmd.Args) != 7 || cmd.Args[1] != "FROMLONLAT" || cmd.Args[4] != "BYRADIUS" || cmd.Args[6] != "m" {
-			return resp.SimpleError("ERR wrong number of arguments for 'geosearch' command")
-		}
-
 		lon, err1 := strconv.ParseFloat(cmd.Args[2], 64)
 		lat, err2 := strconv.ParseFloat(cmd.Args[3], 64)
 		radius, err3 := strconv.ParseFloat(cmd.Args[5], 64)
@@ -94,8 +80,7 @@ func Geospacial(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		list := dataStore.GeoSearch(cmd.Args[0], lon, lat, radius)
 		result := resp.ArrayToBulkRESP(list)
 		return result
-
-	default:
-		return resp.SimpleError("ERR Invalid or Unsupported Command")
 	}
+
+	return resp.SimpleError(Error.ERR_INVALID.Error())
 }

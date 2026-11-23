@@ -5,16 +5,13 @@ import (
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 	"github.com/codecrafters-io/redis-starter-go/internal/store"
+
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 func Zset(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	switch cmd.Com {
-
 	case "ZADD":
-		if len(cmd.Args) < 3 || len(cmd.Args)%2 == 0 {
-			return resp.SimpleError("ERR wrong number of arguments for 'zadd' command")
-		}
-
 		var ans int = 0
 		for i := 1; i < len(cmd.Args); i += 2 {
 			score, err := strconv.ParseFloat(cmd.Args[i], 64)
@@ -34,10 +31,6 @@ func Zset(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		return resp.Integer(ans)
 
 	case "ZRANK":
-		if len(cmd.Args) != 2 {
-			return resp.SimpleError("ERR wrong number of arguments for 'zrank' command")
-		}
-
 		index, err := dataStore.ZRANK(cmd.Args[0], cmd.Args[1])
 		if err != nil {
 			return resp.Null{}
@@ -46,10 +39,6 @@ func Zset(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		return resp.Integer(index)
 
 	case "ZRANGE":
-		if len(cmd.Args) < 3 {
-			return resp.SimpleError("ERR wrong number of arguments for 'zrange' command")
-		}
-
 		var left, err1 = strconv.Atoi(cmd.Args[1])
 		var right, err2 = strconv.Atoi(cmd.Args[2])
 		if err1 != nil || err2 != nil {
@@ -61,18 +50,10 @@ func Zset(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		return result
 
 	case "ZCARD":
-		if len(cmd.Args) != 1 {
-			return resp.SimpleError("ERR wrong number of arguments for 'zcard' command")
-		}
-
 		var count int = dataStore.ZCARD(cmd.Args[0])
 		return resp.Integer(count)
 
 	case "ZSCORE":
-		if len(cmd.Args) != 2 {
-			return resp.SimpleError("ERR wrong number of arguments for 'zscore' command")
-		}
-
 		score, err := dataStore.ZSCORE(cmd.Args[0], cmd.Args[1])
 		if err != nil {
 			return resp.Null{}
@@ -81,10 +62,6 @@ func Zset(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		return resp.BulkString(score)
 
 	case "ZREM":
-		if len(cmd.Args) < 2 {
-			return resp.SimpleError("ERR wrong number of arguments for 'zrem' command")
-		}
-
 		var ans int = 0
 		for i := 1; i < len(cmd.Args); i++ {
 			removed, err := dataStore.ZREM(cmd.Args[0], cmd.Args[i])
@@ -97,9 +74,7 @@ func Zset(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			}
 		}
 		return resp.Integer(ans)
-
-	default:
-		return resp.SimpleError("ERR Invalid or Unsupported Command")
-
 	}
+
+	return resp.SimpleError(Error.ERR_INVALID.Error())
 }

@@ -7,30 +7,29 @@ import (
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
+
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 // Master Commands Handler
 
 func (server *Server) MasterCommandHandler(cmd *resp.Command) resp.RESPType {
 	if server.Role != "master" {
-		return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
+		return resp.SimpleError(Error.ERR_INVALID.Error())
 	}
 
-	var result resp.RESPType
-	switch cmd.Com {
+	wrongArgs := Error.NewInvalidArgumentsError(cmd.Com).Error()
 
+	switch cmd.Com {
 	case "PSYNC":
 		temp := server.MasterManager.HandlePSYNC()
-		result = resp.SimpleString(temp)
+		return resp.SimpleString(temp)
 
 	case "WAIT":
-		if len(cmd.Args) != 2 {
-			return resp.SimpleError("ERR wrong number of arguments for 'WAIT' command")
-		}
 		numSlaves, err1 := strconv.Atoi(cmd.Args[0])
 		timeLimit, err2 := strconv.Atoi(cmd.Args[1])
 		if err1 != nil || err2 != nil {
-			return resp.SimpleError("ERR invalid arguments for 'WAIT' command")
+			return resp.SimpleError(wrongArgs)
 		}
 
 		ReplConfGetackCmd := &resp.Command{
@@ -41,13 +40,10 @@ func (server *Server) MasterCommandHandler(cmd *resp.Command) resp.RESPType {
 		rawCommand := resp.Encode(temp)
 
 		var noOfValidAcks int = server.MasterManager.HandleWait(numSlaves, timeLimit, rawCommand)
-		result = resp.Integer(noOfValidAcks)
-
-	default:
-		result = resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
-
+		return resp.Integer(noOfValidAcks)
 	}
-	return result
+
+	return resp.SimpleError(Error.ERR_INVALID.Error())
 }
 
 // Replconf commands include:
