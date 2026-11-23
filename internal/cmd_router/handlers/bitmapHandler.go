@@ -16,7 +16,7 @@ func Bitmap(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		offset, err1 := strconv.Atoi(offsetStr)
 		value, err2 := strconv.Atoi(valueStr)
 		if err1 != nil || err2 != nil || (value != 0 && value != 1) {
-			return resp.SimpleError("ERR value is not an integer or out of range")
+			return resp.SimpleError(Error.ERR_NAN.Error())
 		}
 
 		prevValue, err := dataStore.SetBit(key, offset, value)
@@ -29,7 +29,7 @@ func Bitmap(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		key, offsetStr := cmd.Args[0], cmd.Args[1]
 		offset, err := strconv.Atoi(offsetStr)
 		if err != nil {
-			return resp.SimpleError("ERR value is not an integer or out of range")
+			return resp.SimpleError(Error.ERR_NAN.Error())
 		}
 
 		value := dataStore.GetBit(key, offset)
@@ -45,13 +45,13 @@ func Bitmap(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		if len(cmd.Args) >= 2 {
 			start, err = strconv.Atoi(cmd.Args[1])
 			if err != nil {
-				return resp.SimpleError("ERR value is not an integer or out of range")
+				return resp.SimpleError(Error.ERR_NAN.Error())
 			}
 		}
 		if len(cmd.Args) == 3 {
 			end, err = strconv.Atoi(cmd.Args[2])
 			if err != nil {
-				return resp.SimpleError("ERR value is not an integer or out of range")
+				return resp.SimpleError(Error.ERR_NAN.Error())
 			}
 		}
 
@@ -59,11 +59,7 @@ func Bitmap(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		return resp.Integer(value)
 
 	case "BITOP":
-		value, err := dataStore.BitopHandler(cmd.Args[0], cmd.Args[1], cmd.Args[2:])
-		if err != nil {
-			return resp.SimpleError(err.Error())
-		}
-
+		value := dataStore.BitopHandler(cmd.Args[0], cmd.Args[1], cmd.Args[2:])
 		return resp.Integer(value)
 	}
 

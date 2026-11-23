@@ -1,11 +1,12 @@
 package store
 
 import (
-	"errors"
 	"strconv"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"
 	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
+
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 func createSortedSetObject() *RedisObject {
@@ -28,7 +29,7 @@ func (s *Store) ZADD(key string, score float64, value string) (bool, error) {
 
 	redisObj, exists := s.data[key]
 	if exists && redisObj.Type != SortedSetType {
-		return false, errors.New("ERR WrongType Operation. NOT A SORTED SET")
+		return false, Error.ERR_WRONGTYPE("ZSET")
 	}
 
 	if !exists {
@@ -48,12 +49,12 @@ func (s *Store) ZRANK(key, value string) (int, error) {
 
 	redisObj, exists := s.data[key]
 	if !exists {
-		return 0, errors.New("ERR Key does not exist")
+		return 0, Error.ERR_NOT_FOUND
 	}
 
 	index, exists := redisObj.Value.(*storage.SortedSet).IndexMap[value]
 	if !exists {
-		return 0, errors.New("ERR Value does not exist in the sorted set")
+		return 0, Error.ERR_NOT_FOUND
 	}
 
 	return index, nil
@@ -92,13 +93,13 @@ func (s *Store) ZSCORE(key, value string) (string, error) {
 
 	SetObj, exists := s.data[key]
 	if !exists || SetObj.Type != SortedSetType {
-		return "", errors.New("ERR Key does not exist")
+		return "", Error.ERR_NOT_FOUND
 	}
 
 	sortedSet := SetObj.Value.(*storage.SortedSet)
 	score, exists := sortedSet.ScoreMap[value]
 	if !exists {
-		return "", errors.New("ERR Value does not exist in the sorted set")
+		return "", Error.ERR_NOT_FOUND
 	}
 
 	return strconv.FormatFloat(score, 'f', -1, 64), nil
@@ -110,7 +111,7 @@ func (s *Store) ZREM(key, value string) (bool, error) {
 
 	SetObj, exists := s.data[key]
 	if !exists || SetObj.Type != SortedSetType {
-		return false, errors.New("ERR Key does not exist")
+		return false, Error.ERR_NOT_FOUND
 	}
 
 	sortedSet := SetObj.Value.(*storage.SortedSet)

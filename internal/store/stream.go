@@ -1,11 +1,12 @@
 package store
 
 import (
-	"errors"
 	"time"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"
 	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
+
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 func createStreamObject(key string) *RedisObject {
@@ -28,7 +29,7 @@ func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) 
 
 	redisObj, exists := s.data[key]
 	if exists && redisObj.Type != StreamType {
-		return "", errors.New("ERR WrongType Operation. NOT A STREAM")
+		return "", Error.ERR_WRONGTYPE("STREAM")
 	}
 
 	if !exists {
@@ -58,7 +59,7 @@ func (s *Store) XRange(key string, startMST int64, startSeq int64, endMST int64,
 	}
 
 	if redisObj.Type != StreamType {
-		return nil, errors.New("ERR WrongType Operation. NOT A STREAM")
+		return nil, Error.ERR_WRONGTYPE("STREAM")
 	}
 
 	stream := redisObj.Value.(*storage.Stream)
@@ -132,7 +133,7 @@ func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTim
 			redisObj = s.data[keys[i]]
 		}
 		if redisObj.Type != StreamType {
-			return nil, errors.New("ERR WrongType Operation. NOT A STREAM")
+			return nil, Error.ERR_WRONGTYPE("STREAM")
 		}
 
 		var notifyChList = &redisObj.Value.(*storage.Stream).Notify

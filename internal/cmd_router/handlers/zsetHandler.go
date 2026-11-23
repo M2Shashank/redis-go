@@ -16,7 +16,7 @@ func Zset(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		for i := 1; i < len(cmd.Args); i += 2 {
 			score, err := strconv.ParseFloat(cmd.Args[i], 64)
 			if err != nil {
-				return resp.SimpleError("ERR value is not a valid float")
+				return resp.SimpleError(Error.ERR_NAN_FLOAT.Error())
 			}
 
 			done, err := dataStore.ZADD(cmd.Args[0], score, cmd.Args[i+1])
@@ -42,7 +42,7 @@ func Zset(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		var left, err1 = strconv.Atoi(cmd.Args[1])
 		var right, err2 = strconv.Atoi(cmd.Args[2])
 		if err1 != nil || err2 != nil {
-			return resp.SimpleError("ERR value is not a valid integer")
+			return resp.SimpleError(Error.ERR_NAN.Error())
 		}
 
 		var list []string = dataStore.ZRANGE(cmd.Args[0], left, right)

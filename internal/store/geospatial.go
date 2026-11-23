@@ -1,12 +1,13 @@
 package store
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
+
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 const EARTH_RADIUS_METERS float64 = 6372797.560856
@@ -92,7 +93,7 @@ func (s *Store) GetDistanceMeters(key string, name1, name2 string) (float64, err
 	lon1, lat1, err1 := s.GetLonLat(key, name1)
 	lon2, lat2, err2 := s.GetLonLat(key, name2)
 	if err1 != nil || err2 != nil {
-		return 0, errors.New("ERR one or both members do not exist in the sorted set")
+		return 0, Error.ERR_MEMBER_NOT_FOUND
 	}
 
 	distance := HaversineDistance(lon1, lat1, lon2, lat2)

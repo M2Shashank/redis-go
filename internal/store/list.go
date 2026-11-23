@@ -1,11 +1,12 @@
 package store
 
 import (
-	"errors"
 	"time"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"
 	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
+
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 func createListObject() *RedisObject {
@@ -31,7 +32,7 @@ func (s *Store) RPush(key string, values []string) (int, error) {
 		listObj = s.data[key]
 	}
 	if exists && listObj.Type != ListType {
-		return 0, errors.New("ERR WrongType. NOT A LIST")
+		return 0, Error.ERR_WRONGTYPE("LIST")
 	}
 
 	list := listObj.Value.(*storage.List)
@@ -56,7 +57,7 @@ func (s *Store) LPush(key string, values []string) (int, error) {
 		listObj = s.data[key]
 	}
 	if exists && listObj.Type != ListType {
-		return 0, errors.New("ERR WrongType. NOT A LIST")
+		return 0, Error.ERR_WRONGTYPE("LIST")
 	}
 
 	list := listObj.Value.(*storage.List)
@@ -117,7 +118,7 @@ func (s *Store) LLen(key string) (int, error) {
 		return 0, nil
 	}
 	if obj.Type != ListType {
-		return 0, errors.New("ERR WrongType. NOT A LIST")
+		return 0, Error.ERR_WRONGTYPE("LIST")
 	}
 
 	return obj.Value.(*storage.List).Entries.Length, nil
@@ -132,7 +133,7 @@ func (s *Store) LPop(key string) (string, error) {
 		return "", nil
 	}
 	if obj.Type != ListType {
-		return "", errors.New("ERR WrongType. NOT A LIST")
+		return "", Error.ERR_WRONGTYPE("LIST")
 	}
 
 	list := obj.Value.(*storage.List)
@@ -151,7 +152,7 @@ func (s *Store) LPopN(key string, count int) ([]string, error) {
 		return nil, nil
 	}
 	if obj.Type != ListType {
-		return []string{}, errors.New("ERR WrongType. NOT A LIST")
+		return []string{}, Error.ERR_WRONGTYPE("LIST")
 	}
 
 	list := obj.Value.(*storage.List)
@@ -180,7 +181,7 @@ func (s *Store) BLPop(key string, timeout float64) (string, error) {
 	}
 	if obj.Type != ListType {
 		s.dataMutex.Unlock()
-		return "", errors.New("ERR WrongType. NOT A LIST")
+		return "", Error.ERR_WRONGTYPE("LIST")
 	}
 
 	list := obj.Value.(*storage.List)

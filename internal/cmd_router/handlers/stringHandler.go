@@ -28,7 +28,7 @@ func String(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			var expiryType string = strings.ToUpper(cmd.Args[2])
 			expiryTimeMS, err := strconv.Atoi(cmd.Args[3])
 			if err != nil {
-				return resp.SimpleError("ERR Invalid or Unsupported Arguments for SET command")
+				return resp.SimpleError(Error.ERR_InvalidArguments("SET").Error())
 			}
 			if expiryType == "EX" {
 				expiryTimeMS *= 1000

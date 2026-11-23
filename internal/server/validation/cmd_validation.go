@@ -12,49 +12,49 @@ func ValidateCmdArguments(cmd *resp.Command) error {
 	switch strings.ToUpper(cmd.Com) {
 	case "PSYNC", "WAIT":
 		if len(cmd.Args) != 2 {
-			return Error.NewInvalidSyntaxError(cmd.Com)
+			return Error.ERR_InvalidSyntax(cmd.Com)
 		}
 	case "REPLCONF":
 		if len(cmd.Args) < 2 {
-			return Error.NewInvalidSyntaxError("replconf")
+			return Error.ERR_InvalidSyntax("replconf")
 		}
 		str := strings.ToUpper(cmd.Args[0])
 
 		if str != "ACK" && str != "LISTENING-PORT" && str != "CAPA" && str != "GETACK" {
-			return Error.NewInvalidSyntaxError("replconf")
+			return Error.ERR_InvalidSyntax("replconf")
 		}
 	case "INFO", "PING", "UNWATCH", "MULTI", "EXEC", "DISCARD":
 		if len(cmd.Args) > 1 {
-			return Error.NewInvalidSyntaxError(cmd.Com)
+			return Error.ERR_InvalidSyntax(cmd.Com)
 		}
 	case "SUBSCRIBE", "UNSUBSCRIBE", "WATCH":
 		if len(cmd.Args) < 1 {
-			return Error.NewInvalidSyntaxError(cmd.Com)
+			return Error.ERR_InvalidSyntax(cmd.Com)
 		}
 	case "PUBLISH", "AUTH":
 		if len(cmd.Args) != 2 {
-			return Error.NewInvalidSyntaxError(cmd.Com)
+			return Error.ERR_InvalidSyntax(cmd.Com)
 		}
 	case "CONFIG":
 		if len(cmd.Args) != 2 {
-			return Error.NewInvalidSyntaxError("config")
+			return Error.ERR_InvalidSyntax("config")
 		}
 		var typeOf string = cmd.Args[0]
 		if typeOf != "GET" {
-			return Error.NewInvalidArgumentsError("config")
+			return Error.ERR_InvalidArguments("config")
 		}
 	case "ACL":
 		if len(cmd.Args) < 1 {
-			return Error.NewInvalidSyntaxError("acl")
+			return Error.ERR_InvalidSyntax("acl")
 		}
 		if cmd.Args[0] == "GETUSER" && len(cmd.Args) != 2 {
-			return Error.NewInvalidSyntaxError("acl getuser")
+			return Error.ERR_InvalidSyntax("acl getuser")
 		}
 		if cmd.Args[0] == "SETUSER" && len(cmd.Args) < 3 {
-			return Error.NewInvalidSyntaxError("acl setuser")
+			return Error.ERR_InvalidSyntax("acl setuser")
 		}
 		if cmd.Args[0] == "WHOAMI" && len(cmd.Args) != 1 {
-			return Error.NewInvalidSyntaxError("acl whoami")
+			return Error.ERR_InvalidSyntax("acl whoami")
 		}
 	default:
 		return storeCmdArgumentsValidation(cmd)

@@ -34,7 +34,7 @@ func List(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		left, err1 := strconv.Atoi(cmd.Args[1])
 		right, err2 := strconv.Atoi(cmd.Args[2])
 		if err1 != nil || err2 != nil {
-			return resp.SimpleError("ERR Invalid or Unsupported Arguments for LRANGE command")
+			return resp.SimpleError(Error.ERR_InvalidArguments("LRANGE").Error())
 		}
 
 		var list []string = dataStore.LRange(cmd.Args[0], left, right)
@@ -66,7 +66,7 @@ func List(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 		case 2:
 			var popCount, err = strconv.Atoi(cmd.Args[1])
 			if err != nil || popCount < 0 {
-				return resp.SimpleError("ERR Invalid or Unsupported Arguments for LPOP command")
+				return resp.SimpleError(Error.ERR_InvalidArguments("LPOP").Error())
 			}
 
 			values, err := dataStore.LPopN(cmd.Args[0], popCount)
@@ -81,7 +81,7 @@ func List(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 	case "BLPOP":
 		timeout, err := strconv.ParseFloat(cmd.Args[1], 64)
 		if err != nil || timeout < 0 {
-			return resp.SimpleError("ERR Invalid command syntax for BLPOP command")
+			return resp.SimpleError(Error.ERR_InvalidArguments("BLPOP").Error())
 		}
 		var key string = cmd.Args[0]
 

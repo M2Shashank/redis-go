@@ -71,7 +71,7 @@ func Stream(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			if strings.ToUpper(cmd.Args[0]) == "BLOCK" {
 				time, err := strconv.ParseInt(cmd.Args[1], 10, 64)
 				if err != nil || time < 0 {
-					return resp.SimpleError("ERR Invalid Arguments for XREAD command")
+					return resp.SimpleError(Error.ERR_InvalidArguments("XREAD").Error())
 				}
 				expiryTime = time
 				cmd.Args = cmd.Args[2:]
@@ -79,12 +79,12 @@ func Stream(cmd *resp.Command, dataStore *store.Store) resp.RESPType {
 			}
 
 			if length < 3 || length%2 != 1 {
-				return resp.SimpleError("ERR Invalid Arguments for XREAD command")
+				return resp.SimpleError(Error.ERR_InvalidArguments("XREAD").Error())
 			}
 
 			var str string = strings.ToUpper(cmd.Args[0])
 			if str != "STREAMS" {
-				return resp.SimpleError("ERR Invalid Arguments for XREAD command")
+				return resp.SimpleError(Error.ERR_InvalidArguments("XREAD").Error())
 			}
 
 			var keys []string = cmd.Args[1 : (length/2)+1]

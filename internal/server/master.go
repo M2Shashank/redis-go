@@ -18,7 +18,7 @@ func (server *Server) MasterCommandHandler(cmd *resp.Command) resp.RESPType {
 		return resp.SimpleError(Error.ERR_INVALID.Error())
 	}
 
-	wrongArgs := Error.NewInvalidArgumentsError(cmd.Com).Error()
+	wrongArgs := Error.ERR_InvalidArguments(cmd.Com).Error()
 
 	switch cmd.Com {
 	case "PSYNC":

@@ -1,7 +1,7 @@
 package store
 
 import (
-	"errors"
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
@@ -14,7 +14,7 @@ func (s *Store) SetBit(key string, offset int, value int) (int, error) {
 		redisObj = s.data[key]
 	}
 	if redisObj.Type != StringType {
-		return 0, errors.New("ERR WrongType. NOT A STRING")
+		return 0, Error.ERR_WRONGTYPE("STRING")
 	}
 
 	stringObj := redisObj.Value.(*storage.String)
@@ -56,11 +56,7 @@ func (s *Store) BitCount(key string, start, end int) int {
 	return count
 }
 
-func (s *Store) BitopHandler(operation string, destKey string, keys []string) (int, error) {
-	if strings.ToUpper(operation) != "AND" && strings.ToUpper(operation) != "OR" {
-		return 0, errors.New("ERR Unsupported BITOP operation")
-	}
-
+func (s *Store) BitopHandler(operation string, destKey string, keys []string) int {
 	destObj, exists := s.data[destKey]
 	if !exists {
 		s.data[destKey] = createStringObject()
@@ -79,19 +75,17 @@ func (s *Store) BitopHandler(operation string, destKey string, keys []string) (i
 		}
 	}
 
+	var lenDest int
 	switch strings.ToUpper(operation) {
 	case "AND":
-		lenDest := destObj.Value.(*storage.String).AndAll(validKeys)
+		lenDest = destObj.Value.(*storage.String).AndAll(validKeys)
 		if missing {
 			clear(destObj.Value.(*storage.String).Data)
 		}
 
-		return lenDest, nil
-
 	case "OR":
-		lenDest := destObj.Value.(*storage.String).OrAll(validKeys)
-		return lenDest, nil
+		lenDest = destObj.Value.(*storage.String).OrAll(validKeys)
 	}
 
-	return 0, errors.New("ERR Unsupported BITOP operation")
+	return lenDest
 }

@@ -1,10 +1,10 @@
 package store
 
 import (
-	"errors"
 	"strconv"
 
 	storage "github.com/codecrafters-io/redis-starter-go/internal/store/storage"
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 func createStringObject() *RedisObject {
@@ -29,7 +29,7 @@ func (s *Store) Get(key string) (string, error) {
 		return "", nil
 	}
 	if obj.Type != StringType {
-		return "", errors.New("ERR WrongType. NOT A STRING")
+		return "", Error.ERR_WRONGTYPE("STRING")
 	}
 
 	var ans string = string(obj.Value.(*storage.String).Data)
@@ -47,7 +47,7 @@ func (s *Store) Set(key string, value string) error {
 	}
 
 	if exists && obj.Type != StringType {
-		return errors.New("ERR WrongType. NOT A STRING")
+		return Error.ERR_WRONGTYPE("STRING")
 	}
 
 	obj.Value.(*storage.String).SetData(value)
@@ -74,14 +74,14 @@ func (s *Store) Incr(key string) (int, error) {
 		return 1, nil
 	}
 	if obj.Type != StringType {
-		return 0, errors.New("ERR WrongType. NOT A STRING")
+		return 0, Error.ERR_WRONGTYPE("STRING")
 	}
 
 	stringObj := obj.Value.(*storage.String)
 
 	value, err := strconv.Atoi(string(stringObj.Data))
 	if err != nil {
-		return 0, errors.New("ERR value is not an integer or out of range")
+		return 0, Error.ERR_NAN
 	}
 
 	stringObj.SetData(strconv.Itoa(value + 1))

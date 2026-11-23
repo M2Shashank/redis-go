@@ -6,11 +6,11 @@ import (
 
 var ERR_INVALID = errors.New("ERR Invalid or Unsupported Command")
 
-func NewInvalidSyntaxError(command string) error {
+func ERR_InvalidSyntax(command string) error {
 	return errors.New("ERR wrong number of arguments for '" + command + "' command")
 }
 
-func NewInvalidArgumentsError(command string) error {
+func ERR_InvalidArguments(command string) error {
 	return errors.New("ERR Invalid or Unsupported Arguments for '" + command + "' command")
 }
 
