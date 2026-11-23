@@ -9,6 +9,7 @@ type AuthUser struct {
 	Username  string
 	Flags     map[string]bool
 	Passwords map[string]bool
+	Authenticated bool
 }
 
 func DefaultUser() *AuthUser {
@@ -83,4 +84,13 @@ func (m *AuthManager) ValidateCredentials(username string, password string) bool
 	}
 
 	return false
+}
+
+func (m *AuthManager) IsAuthenticated(username string) bool {
+	user := m.Users[username]
+	if user == nil {
+		return false
+	}
+
+	return user.Flags["nopass"]
 }

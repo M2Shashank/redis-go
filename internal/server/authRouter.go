@@ -58,3 +58,7 @@ func (s *Server) AuthHandler(clientName string, cmd *resp.Command) resp.RESPType
 	}
 	return resp.SimpleError("ERR unknown command '" + cmd.Com + "'")
 }
+
+func (s *Server) AuthVerdict(username string) bool {
+	return s.Auth.IsAuthenticated(username)
+}
