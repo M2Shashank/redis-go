@@ -29,7 +29,7 @@ func (client *Client) TransactionHandler(cmd *resp.Command) resp.RESPType {
 }
 
 func (c *Client) HandleWatch(cmd *resp.Command) resp.RESPType {
-	if c.inTransaction {
+	if c.TransactionManager.IsInTransaction() {
 		return resp.SimpleError(Error.ERR_WATCH_INSIDE_MULTI.Error())
 	}
 
@@ -45,28 +45,29 @@ func (c *Client) HandleUnwatch() resp.RESPType {
 }
 
 func (c *Client) HandleMulti() resp.RESPType {
-	if c.inTransaction {
+	if c.TransactionManager.IsInTransaction() {
 		return resp.SimpleError(Error.ERR_MULTI_NESTED.Error())
 	}
 
-	c.inTransaction = true
+	c.TransactionManager.SetInTransaction(true)
 	return resp.SimpleString("OK")
 }
 
 func (c *Client) HandleExec() resp.RESPType {
-	if !c.inTransaction {
+	if !c.TransactionManager.IsInTransaction() {
 		return resp.SimpleError(Error.ERR_EXEC_WITHOUT_MULTI.Error())
 	}
 
-	if !c.isValidTransaction() {
+	if !c.TransactionManager.IsInTransaction() {
 		c.clearTransactionState()
 		return resp.Array(nil)
 	}
 
-	var results resp.Array = make([]resp.RESPType, 0, c.queuedCmds.Size())
-	for !c.queuedCmds.Empty() {
-		topCmd := c.queuedCmds.Pop()
-		result := command.StoreCommandHandler(topCmd, c.Server.DataStore)
+	queuedCmds := c.TransactionManager.GetQueuedCmds()
+
+	var results resp.Array = make([]resp.RESPType, 0, len(queuedCmds))
+	for _, cmd := range queuedCmds {
+		result := command.StoreCommandHandler(cmd, c.Server.DataStore)
 		results = append(results, result)
 	}
 	c.clearTransactionState()
@@ -74,10 +75,47 @@ func (c *Client) HandleExec() resp.RESPType {
 }
 
 func (c *Client) HandleDiscard() resp.RESPType {
-	if !c.inTransaction {
+	if !c.TransactionManager.IsInTransaction() {
 		return resp.SimpleError(Error.ERR_DISCARD_WITHOUT_MULTI.Error())
 	}
 
 	c.clearTransactionState()
 	return resp.SimpleString("OK")
+}
+
+// Transaction State Management Methods
+
+func (c *Client) setWatchKey(key string) {
+	var version int64 = c.Server.DataStore.GetKeyVersion(key)
+	c.TransactionManager.SetVersion(key, version)
+}
+
+func (c *Client) clearWatchedKeys() {
+	c.TransactionManager.ClearWatchedKeys()
+}
+
+func (c *Client) isValidTransaction() bool {
+	keys := c.TransactionManager.GetWatchedKeys()
+
+	newVersions := make(map[string]int64)
+	for key := range keys {
+		newVersions[key] = c.Server.DataStore.GetKeyVersion(key)
+	}
+
+	for key, version := range keys {
+		currentVersion := newVersions[key]
+		if currentVersion != version {
+			return false
+		}
+	}
+	return true
+}
+
+// used in transaction.go
+func (c *Client) clearTransactionState() {
+	c.TransactionManager.ClearTransactionState()
+}
+
+func (c *Client) pushCmdToQueue(cmd *resp.Command) {
+	c.TransactionManager.PushCmdToQueue(cmd)
 }

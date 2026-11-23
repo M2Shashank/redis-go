@@ -5,8 +5,7 @@ import (
 	"net"
 	"github.com/google/uuid"
 
-	"github.com/codecrafters-io/redis-starter-go/internal/collections"
-	"github.com/codecrafters-io/redis-starter-go/internal/resp"
+	"github.com/codecrafters-io/redis-starter-go/internal/server/transaction"
 )
 
 // Client represents a single client connection.
@@ -23,9 +22,8 @@ type Client struct {
 	// Pubsub subscribe shoudnt block client. Hence this is implemented
 	// Writing to connection is done by channel
 
-	queuedCmds    *collections.Queue[*resp.Command] // for multi/ exec transactions
-	watchedKeys   map[string]int64                  // for watch command. Stores the key and its version at the time of WATCH command
-	inTransaction bool                              // true if MULTI command has been issued and EXEC or DISCARD is pending. false otherwise.
+	// manages transaction state for the client
+	TransactionManager *transaction.TransactionManager
 
 	// Checks if a client is authenticated or not
 	Authenticated bool
@@ -39,9 +37,8 @@ func NewClient(conn net.Conn, server *Server) *Client {
 		Server: server,
 		Id:     uuid.New().String(),
 
-		queuedCmds:    collections.NewQueue[*resp.Command](),
-		watchedKeys:   make(map[string]int64),
-		inTransaction: false,
+		TransactionManager: transaction.NewTransactionManager(),
+
 		WriteChannel: make(chan []byte, 1000),
 
 		Username: "default",
@@ -64,36 +61,6 @@ func (c *Client) WriteLoop() {
 
 func (c *Client) Send(msg []byte) {
 	c.WriteChannel <- msg
-}
-
-func (c *Client) setWatchKey(key string) {
-	var version int64 = c.Server.DataStore.GetKeyVersion(key)
-	c.watchedKeys[key] = version
-}
-
-func (c *Client) clearWatchedKeys() {
-	c.watchedKeys = make(map[string]int64)
-}
-
-func (c *Client) clearQueuedCmds() {
-	c.queuedCmds.Clear()
-}
-
-func (c *Client) isValidTransaction() bool {
-	for key, version := range c.watchedKeys {
-		currentVersion := c.Server.DataStore.GetKeyVersion(key)
-		if currentVersion != version {
-			return false
-		}
-	}
-	return true
-}
-
-// used in transaction.go
-func (c *Client) clearTransactionState() {
-	c.inTransaction = false
-	c.clearWatchedKeys()
-	c.clearQueuedCmds()
 }
 
 func (c *Client) InSubscribedMode() bool {

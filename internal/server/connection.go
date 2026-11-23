@@ -167,8 +167,8 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 
 		default:
 			// All other commands handled by (Command package)
-			if client.inTransaction {
-				client.queuedCmds.Push(cmd)
+			if client.TransactionManager.IsInTransaction() {
+				client.pushCmdToQueue(cmd)
 				result = resp.SimpleString("QUEUED")
 			} else {
 				result = command.StoreCommandHandler(cmd, client.Server.DataStore)
