@@ -5,7 +5,7 @@ import (
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 
-	Error "github.com/codecrafters-io/redis-starter-go/internal/Errors"
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 func storeCmdArgumentsValidation(cmd *resp.Command) error {

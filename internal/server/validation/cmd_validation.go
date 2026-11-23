@@ -3,7 +3,7 @@ package validation
 import (
 	"strings"
 
-	Error "github.com/codecrafters-io/redis-starter-go/internal/Errors"
+	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 )
 
