@@ -110,7 +110,7 @@ func HandleMasterConn(client *Client) {
 // Routes commands based on server type (master/slave) and command type (replication, server, transaction, etc.)
 // Command Package's ExecuteCommand executes only client side commands
 func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
-	if !client.Authenticated {
+	if !client.Authenticated && cmd.Com != "AUTH" {
 		return resp.SimpleError("NOAUTH Authentication required.")
 	}
 
@@ -134,6 +134,10 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 	case "AUTH", "ACL":
 		// Auth commands handled by AuthManager.
 		result = client.Server.AuthHandler(client.Username, cmd)
+
+		if cmd.Com == "AUTH" && result.Type() == "SimpleString" {
+			client.Authenticated = true
+		}
 	default:
 		// client handled commands
 		if client.InSubscribedMode() {
