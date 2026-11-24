@@ -1,12 +1,12 @@
 package server
 
 import (
-	"github.com/codecrafters-io/redis-starter-go/internal/cmd_router"
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 
+	cmd_router "github.com/codecrafters-io/redis-starter-go/internal/cmd/dispatcher"
 	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
-
+	
 // ------ Transaction Commands Implementation -------
 // ---- ( MULTI, EXEC, WATCH, DISCARD, UNWATCH ) ----
 // implemented in server bacause they need access to Client struct fields and methods
@@ -67,7 +67,7 @@ func (c *Client) HandleExec() resp.RESPType {
 
 	var results resp.Array = make([]resp.RESPType, 0, len(queuedCmds))
 	for _, cmd := range queuedCmds {
-		result := command.StoreCommandHandler(cmd, c.Server.DataStore)
+		result := cmd_router.StoreCommandHandler(cmd, c.Server.DataStore)
 		results = append(results, result)
 	}
 	c.clearTransactionState()

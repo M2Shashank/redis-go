@@ -1,12 +1,14 @@
 package server
 
+// Handles connections from Clients and Slaves and routes them to the appropriate handlers.
+
 import (
 	"fmt"
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
 
-	command "github.com/codecrafters-io/redis-starter-go/internal/cmd_router"
+	cmd_router "github.com/codecrafters-io/redis-starter-go/internal/cmd/dispatcher"
 	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 	validation "github.com/codecrafters-io/redis-starter-go/internal/server/validation"
 )
@@ -171,7 +173,7 @@ func (client *Client) ExecuteCommand(cmd *resp.Command) resp.RESPType {
 				client.pushCmdToQueue(cmd)
 				result = resp.SimpleString("QUEUED")
 			} else {
-				result = command.StoreCommandHandler(cmd, client.Server.DataStore)
+				result = cmd_router.StoreCommandHandler(cmd, client.Server.DataStore)
 			}
 		}
 

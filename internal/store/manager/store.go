@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	rdb_parser "github.com/codecrafters-io/redis-starter-go/internal/store/rdb_parser"
+	rdb_parser "github.com/codecrafters-io/redis-starter-go/internal/store/rdb"
 )
 
 type Store struct {

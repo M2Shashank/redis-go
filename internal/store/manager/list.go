@@ -4,15 +4,15 @@ import (
 	"time"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"
-	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
 
+	store_model "github.com/codecrafters-io/redis-starter-go/internal/store/models"
 	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 func createListObject() *RedisObject {
 	obj := &RedisObject{
 		Type: ListType,
-		Value: &storage.List{
+		Value: &store_model.List{
 			Entries: &collections.DoublyLL[string]{},
 			Waiters: []chan string{},
 		},
@@ -35,7 +35,7 @@ func (s *Store) RPush(key string, values []string) (int, error) {
 		return 0, Error.ERR_WRONGTYPE("LIST")
 	}
 
-	list := listObj.Value.(*storage.List)
+	list := listObj.Value.(*store_model.List)
 	var result = list.Entries.Length + len(values)
 
 	for _, value := range values {
@@ -60,7 +60,7 @@ func (s *Store) LPush(key string, values []string) (int, error) {
 		return 0, Error.ERR_WRONGTYPE("LIST")
 	}
 
-	list := listObj.Value.(*storage.List)
+	list := listObj.Value.(*store_model.List)
 	var result = list.Entries.Length + len(values)
 
 	for _, value := range values {
@@ -81,7 +81,7 @@ func (s *Store) LRange(key string, start int, stop int) []string {
 		return []string{}
 	}
 
-	list := obj.Value.(*storage.List).Entries
+	list := obj.Value.(*store_model.List).Entries
 
 	if start < 0 {
 		start = list.Length + start
@@ -121,7 +121,7 @@ func (s *Store) LLen(key string) (int, error) {
 		return 0, Error.ERR_WRONGTYPE("LIST")
 	}
 
-	return obj.Value.(*storage.List).Entries.Length, nil
+	return obj.Value.(*store_model.List).Entries.Length, nil
 }
 
 func (s *Store) LPop(key string) (string, error) {
@@ -136,7 +136,7 @@ func (s *Store) LPop(key string) (string, error) {
 		return "", Error.ERR_WRONGTYPE("LIST")
 	}
 
-	list := obj.Value.(*storage.List)
+	list := obj.Value.(*store_model.List)
 	value, err := list.Entries.PopFront()
 	obj.version++
 
@@ -155,7 +155,7 @@ func (s *Store) LPopN(key string, count int) ([]string, error) {
 		return []string{}, Error.ERR_WRONGTYPE("LIST")
 	}
 
-	list := obj.Value.(*storage.List)
+	list := obj.Value.(*store_model.List)
 	var result []string = make([]string, 0, count)
 
 	for i := 0; i < count; i++ {
@@ -184,7 +184,7 @@ func (s *Store) BLPop(key string, timeout float64) (string, error) {
 		return "", Error.ERR_WRONGTYPE("LIST")
 	}
 
-	list := obj.Value.(*storage.List)
+	list := obj.Value.(*store_model.List)
 	if list.Entries.Length > 0 {
 		value, _ := list.Entries.PopFront()
 		obj.version++

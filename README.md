@@ -1,45 +1,97 @@
-[![progress-banner](https://backend.codecrafters.io/progress/redis/77c8d335-e22c-4e2c-8cd4-d23f99c94813)](https://app.codecrafters.io/users/M2Shashank?r=2qF)
+# Redis Go
 
-This is a starting point for Go solutions to the
-["Build Your Own Redis" Challenge](https://codecrafters.io/challenges/redis).
+A Redis-compatible server written in Go as part of the
+["Build Your Own Redis" challenge](https://codecrafters.io/challenges/redis).
 
-In this challenge, you'll build a toy Redis clone that's capable of handling
-basic commands like `PING`, `SET` and `GET`. Along the way we'll learn about
-event loops, the Redis protocol and more.
+The server communicates using RESP over TCP and includes an in-memory data store, command handlers, replication, persistence, Pub/Sub, transactions, authentication, and ACL support.
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+## Features
 
-# Passing the first stage
+- RESP request parsing and response encoding
+- General commands: `PING`, `ECHO`, `TYPE`, `INFO`, `CONFIG`, `KEYS`
+- String commands: `SET`, `GET`, `INCR`
+- List commands: `RPUSH`, `LPUSH`, `LRANGE`, `LLEN`, `LPOP`, `BLPOP`
+- Stream commands: `XADD`, `XRANGE`, `XREAD`
+- Sorted set commands: `ZADD`, `ZRANK`, `ZRANGE`, `ZCARD`, `ZSCORE`, `ZREM`
+- Bitmap commands: `SETBIT`, `GETBIT`, `STRLEN`, `BITCOUNT`, `BITOP`
+- Geospatial commands: `GEOADD`, `GEOPOS`, `GEODIST`, `GEOSEARCH`
+- Pub/Sub: `SUBSCRIBE`, `UNSUBSCRIBE`, `PUBLISH`
+- Transactions: `WATCH`, `UNWATCH`, `MULTI`, `EXEC`, `DISCARD`
+- Authentication and ACL: `AUTH`, `ACL`
+- Replication: `INFO`, `REPLCONF`, `PSYNC`, `WAIT`
+- Persistence: RDB loading and optional AOF read/write
 
-The entry point for your Redis implementation is in `app/main.go`. Study and
-uncomment the relevant code, then run the command below to execute the tests on
-our servers:
+## Requirements
+
+- Go 1.27 or newer
+- `redis-cli` or another Redis-compatible client for testing
+
+## Running the Server
+
+Start the server on the default port:
 
 ```sh
-codecrafters submit
+go run ./cmd/redis
 ```
 
-That's all!
+Connect with `redis-cli`:
 
-# Stage 2 & beyond
+```sh
+redis-cli -p 6379
+```
 
-Note: This section is for stages 2 and beyond.
+## Command-Line Options
 
-1. Ensure you have `go (1.27)` installed locally
-1. Run `./your_program.sh` to run your Redis server, which is implemented in
-   `app/main.go`.
-1. Run `codecrafters submit` to submit your solution to CodeCrafters. Test
-   output will be streamed to your terminal.
+Run on another port:
+
+```sh
+go run ./cmd/redis --port 6380
+```
+
+Start as a replica:
+
+```sh
+go run ./cmd/redis --port 6380 --replicaof "127.0.0.1 6379"
+```
+
+| Option | Default | Description |
+|---|---:|---|
+| `--port`, `-p` | `6379` | TCP listening port |
+| `--replicaof` | empty | Host and port of the master server |
+| `--dir` | current directory | Directory containing persistence files |
+| `--dbfilename` | `dump.rdb` | RDB filename |
+| `--appendonly` | `no` | Enable AOF persistence |
+| `--appenddirname` | `appendonlydir` | AOF directory name |
+| `--appendfilename` | `appendonly.aof` | AOF filename |
+| `--appendfsync` | `everysec` | AOF synchronization policy |
+
+## Project Structure
+
+```text
+internal/
+  cmd_router/       Command dispatch and command handlers
+  collections/      Custom linked lists and queues
+  errors/           Redis-compatible error definitions
+  resp/             RESP types, parsing, and encoding
+  server/           Connections, replication, Pub/Sub, auth, and persistence
+  store/            In-memory storage, data types, and RDB support
+```
+
+## Persistence
+
+The server can:
+
+- Load an RDB file on startup
+- Replay an AOF file when `appendonly=yes`
+- Append write commands to the configured AOF file
+
+Configure persistence through the `--dir`, `--dbfilename`, `--appendonly`,
+`--appenddirname`, `--appendfilename`, and `--appendfsync` options.
 
 
 # Notes for Myself
-Things to Modify
 
 1. set with expiry has bugs. New set, invalidates earlier
-2. BLPOP connection channels need to be popped of the map if clients disconnects
-6. Validate the command before queueing - Transactions
 9. remove the strong coupling of server and client somehow. Is it required ?
-10. Rdb file contents can be restructured, seperate expiry keys from others and handle in store. 
- Parser can be moved to resp as a result ig
-11. 
+11. Replication manager and seperate its functionality
+12. Event loop instead of go routines ?

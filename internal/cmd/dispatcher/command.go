@@ -1,10 +1,10 @@
-package command
+package router
 
 import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
-	"github.com/codecrafters-io/redis-starter-go/internal/store"
 
-	cmd_handlers "github.com/codecrafters-io/redis-starter-go/internal/cmd_router/handlers"
+	store "github.com/codecrafters-io/redis-starter-go/internal/store/manager"
+	cmd_handlers "github.com/codecrafters-io/redis-starter-go/internal/cmd/handlers"
 	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 

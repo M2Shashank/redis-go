@@ -1,4 +1,4 @@
-package storage
+package model
 
 import (
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"

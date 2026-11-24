@@ -4,18 +4,18 @@ import (
 	"time"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"
-	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
 
+	store_model "github.com/codecrafters-io/redis-starter-go/internal/store/models"
 	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 func createStreamObject(key string) *RedisObject {
 	obj := &RedisObject{
 		Type: StreamType,
-		Value: &storage.Stream{
+		Value: &store_model.Stream{
 			Key:     key,
-			Entries: collections.NewDoublyLL[*storage.StreamEntry](),
-			Notify: []chan *storage.StreamNotification{},
+			Entries: collections.NewDoublyLL[*store_model.StreamEntry](),
+			Notify: []chan *store_model.StreamNotification{},
 		},
 	}
 	return obj
@@ -37,7 +37,7 @@ func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) 
 		redisObj = s.data[key]
 	}
 
-	stream := redisObj.Value.(*storage.Stream)
+	stream := redisObj.Value.(*store_model.Stream)
 	entry, err := stream.CreateStreamEntry(ID, fields)
 	if err != nil {
 		return "", err
@@ -49,30 +49,30 @@ func (s *Store) AddStreamEntry(key string, ID string, fields map[string]string) 
 	return entry.ID, nil
 }
 
-func (s *Store) XRange(key string, startMST int64, startSeq int64, endMST int64, endSeq int64) ([]*storage.StreamEntry, error) {
+func (s *Store) XRange(key string, startMST int64, startSeq int64, endMST int64, endSeq int64) ([]*store_model.StreamEntry, error) {
 	s.dataMutex.RLock()
 	defer s.dataMutex.RUnlock()
 
 	redisObj, exists := s.data[key]
 	if !exists {
-		return []*storage.StreamEntry{}, nil
+		return []*store_model.StreamEntry{}, nil
 	}
 
 	if redisObj.Type != StreamType {
 		return nil, Error.ERR_WRONGTYPE("STREAM")
 	}
 
-	stream := redisObj.Value.(*storage.Stream)
+	stream := redisObj.Value.(*store_model.Stream)
 	result := stream.FilterEntries(startMST, startSeq, endMST, endSeq)
 	
 	return result, nil
 }
 
-func (s *Store) XReadStreams(keys []string, mst []int64, seq []int64) ([]*storage.ModStream, bool) {
+func (s *Store) XReadStreams(keys []string, mst []int64, seq []int64) ([]*store_model.ModStream, bool) {
 	s.dataMutex.RLock()
 	defer s.dataMutex.RUnlock()
 
-	var response []*storage.ModStream = make([]*storage.ModStream, 0, len(keys))
+	var response []*store_model.ModStream = make([]*store_model.ModStream, 0, len(keys))
 	for i := 0; i < len(keys); i++ {
 		if mst[i] == -1 && seq[i] == -1 {
 			continue
@@ -91,7 +91,7 @@ func (s *Store) XReadStreams(keys []string, mst []int64, seq []int64) ([]*storag
 			continue
 		}
 
-		response = append(response, &storage.ModStream{
+		response = append(response, &store_model.ModStream{
 			Key:     keys[i],
 			Entries: entries,
 		})
@@ -110,7 +110,7 @@ func (s *Store) XReadStreams(keys []string, mst []int64, seq []int64) ([]*storag
 // If it is not greater, continue waiting.
 // If it is greater, return the entry and remove the channel from the Notify list of all its keys streams.
 // If the timeout expires, return nil and remove the channel from the Notify list of all its keys streams.
-func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTime int64) ([]*storage.ModStream, error) {
+func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTime int64) ([]*store_model.ModStream, error) {
 	var expiryTimeMS time.Duration = time.Duration(expiryTime) * time.Millisecond
 
 	var mstMp map[string]int64 = make(map[string]int64, len(keys))
@@ -121,9 +121,9 @@ func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTim
 		seqMp[keys[i]] = seq[i]
 	}
 
-	var result []*storage.ModStream = make([]*storage.ModStream, 0, 1)
+	var result []*store_model.ModStream = make([]*store_model.ModStream, 0, 1)
 
-	waiterChannel := make(chan *storage.StreamNotification, 1)
+	waiterChannel := make(chan *store_model.StreamNotification, 1)
 
 	s.dataMutex.Lock()
 	for i := 0; i < len(keys); i++ {
@@ -136,7 +136,7 @@ func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTim
 			return nil, Error.ERR_WRONGTYPE("STREAM")
 		}
 
-		var notifyChList = &redisObj.Value.(*storage.Stream).Notify
+		var notifyChList = &redisObj.Value.(*store_model.Stream).Notify
 		*notifyChList = append(*notifyChList, waiterChannel)
 	}
 	s.dataMutex.Unlock()
@@ -145,16 +145,16 @@ func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTim
 	removeChFromAll := func() {
 		for i := 0; i < len(keys); i++ {
 			redisObj, _ := s.data[keys[i]]
-			redisObj.Value.(*storage.Stream).RemoveChannel(waiterChannel)
+			redisObj.Value.(*store_model.Stream).RemoveChannel(waiterChannel)
 		}
 	}
 
 	if expiryTimeMS == 0 {
 		msg := <-waiterChannel
 		removeChFromAll()
-		result = append(result, &storage.ModStream{
+		result = append(result, &store_model.ModStream{
 			Key:     msg.Key,
-			Entries: []*storage.StreamEntry{msg.Field},
+			Entries: []*store_model.StreamEntry{msg.Field},
 		})
 		return result, nil
 	}
@@ -164,9 +164,9 @@ func (s *Store) BXReadStreams(keys []string, mst []int64, seq []int64, expiryTim
 		select {
 		case msg := <-waiterChannel:
 			if msg.CheckValidNotification(mstMp, seqMp, mst[0]) {
-				result = append(result, &storage.ModStream{
+				result = append(result, &store_model.ModStream{
 					Key:     msg.Key,
-					Entries: []*storage.StreamEntry{msg.Field},
+					Entries: []*store_model.StreamEntry{msg.Field},
 				})
 
 				removeChFromAll()

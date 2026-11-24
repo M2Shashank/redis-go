@@ -4,15 +4,15 @@ import (
 	"strconv"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/collections"
-	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
 
+	store_model "github.com/codecrafters-io/redis-starter-go/internal/store/models"
 	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
 func createSortedSetObject() *RedisObject {
 	obj := &RedisObject{
 		Type: SortedSetType,
-		Value: &storage.SortedSet{
+		Value: &store_model.SortedSet{
 			SetList:  &collections.DoublyLL[string]{},
 			ScoreMap: make(map[string]float64),
 			IndexMap: make(map[string]int),
@@ -37,7 +37,7 @@ func (s *Store) ZADD(key string, score float64, value string) (bool, error) {
 		redisObj = s.data[key]
 	}
 
-	sortedSet := redisObj.Value.(*storage.SortedSet)
+	sortedSet := redisObj.Value.(*store_model.SortedSet)
 	added := sortedSet.Add(score, value)
 	redisObj.version++
 	return added, nil
@@ -52,7 +52,7 @@ func (s *Store) ZRANK(key, value string) (int, error) {
 		return 0, Error.ERR_NOT_FOUND
 	}
 
-	index, exists := redisObj.Value.(*storage.SortedSet).IndexMap[value]
+	index, exists := redisObj.Value.(*store_model.SortedSet).IndexMap[value]
 	if !exists {
 		return 0, Error.ERR_NOT_FOUND
 	}
@@ -69,7 +69,7 @@ func (s *Store) ZRANGE(key string, left, right int) []string {
 		return []string{}
 	}
 
-	sortedSet := SetObj.Value.(*storage.SortedSet)
+	sortedSet := SetObj.Value.(*store_model.SortedSet)
 	listRange := sortedSet.GetRange(left, right)
 	return listRange
 }
@@ -83,7 +83,7 @@ func (s *Store) ZCARD(key string) int {
 		return 0
 	}
 
-	sortedSet := SetObj.Value.(*storage.SortedSet)
+	sortedSet := SetObj.Value.(*store_model.SortedSet)
 	return sortedSet.SetList.Length
 }
 
@@ -96,7 +96,7 @@ func (s *Store) ZSCORE(key, value string) (string, error) {
 		return "", Error.ERR_NOT_FOUND
 	}
 
-	sortedSet := SetObj.Value.(*storage.SortedSet)
+	sortedSet := SetObj.Value.(*store_model.SortedSet)
 	score, exists := sortedSet.ScoreMap[value]
 	if !exists {
 		return "", Error.ERR_NOT_FOUND
@@ -114,7 +114,7 @@ func (s *Store) ZREM(key, value string) (bool, error) {
 		return false, Error.ERR_NOT_FOUND
 	}
 
-	sortedSet := SetObj.Value.(*storage.SortedSet)
+	sortedSet := SetObj.Value.(*store_model.SortedSet)
 	done := sortedSet.RemoveValue(value)
 	SetObj.version++
 

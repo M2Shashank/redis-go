@@ -5,8 +5,8 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/codecrafters-io/redis-starter-go/internal/store/storage"
 
+	store_model "github.com/codecrafters-io/redis-starter-go/internal/store/models"
 	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 
@@ -106,7 +106,7 @@ func (s *Store) GeoSearch(key string, lon, lat, radius float64) []string {
 		return []string{}
 	}
 
-	zsetObj := redisObj.Value.(*storage.SortedSet)
+	zsetObj := redisObj.Value.(*store_model.SortedSet)
 
 	var result []string = []string{}
 	for name, score := range zsetObj.ScoreMap {

@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
-	"github.com/codecrafters-io/redis-starter-go/internal/store"
 
+	store "github.com/codecrafters-io/redis-starter-go/internal/store/manager"
 	persistence "github.com/codecrafters-io/redis-starter-go/internal/server/persistence"
 	pubsub "github.com/codecrafters-io/redis-starter-go/internal/server/pubsub"
-	auth "github.com/codecrafters-io/redis-starter-go/internal/server/authorisation"
+	auth "github.com/codecrafters-io/redis-starter-go/internal/server/auth"
 )
 
 type Server struct {

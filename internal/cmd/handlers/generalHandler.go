@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"github.com/codecrafters-io/redis-starter-go/internal/resp"
-	"github.com/codecrafters-io/redis-starter-go/internal/store"
 
+	store"github.com/codecrafters-io/redis-starter-go/internal/store/manager"
 	Error "github.com/codecrafters-io/redis-starter-go/internal/errors"
 )
 

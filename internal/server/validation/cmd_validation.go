@@ -10,8 +10,16 @@ import (
 func ValidateCmdArguments(cmd *resp.Command) error {
 
 	switch strings.ToUpper(cmd.Com) {
-	case "PSYNC", "WAIT":
+	case "PSYNC", "WAIT", "PUBLISH", "AUTH":
 		if len(cmd.Args) != 2 {
+			return Error.ERR_InvalidSyntax(cmd.Com)
+		}
+	case "INFO", "PING", "UNWATCH", "MULTI", "EXEC", "DISCARD":
+		if len(cmd.Args) > 1 {
+			return Error.ERR_InvalidSyntax(cmd.Com)
+		}
+	case "SUBSCRIBE", "UNSUBSCRIBE", "WATCH":
+		if len(cmd.Args) < 1 {
 			return Error.ERR_InvalidSyntax(cmd.Com)
 		}
 	case "REPLCONF":
@@ -22,18 +30,6 @@ func ValidateCmdArguments(cmd *resp.Command) error {
 
 		if str != "ACK" && str != "LISTENING-PORT" && str != "CAPA" && str != "GETACK" {
 			return Error.ERR_InvalidSyntax("replconf")
-		}
-	case "INFO", "PING", "UNWATCH", "MULTI", "EXEC", "DISCARD":
-		if len(cmd.Args) > 1 {
-			return Error.ERR_InvalidSyntax(cmd.Com)
-		}
-	case "SUBSCRIBE", "UNSUBSCRIBE", "WATCH":
-		if len(cmd.Args) < 1 {
-			return Error.ERR_InvalidSyntax(cmd.Com)
-		}
-	case "PUBLISH", "AUTH":
-		if len(cmd.Args) != 2 {
-			return Error.ERR_InvalidSyntax(cmd.Com)
 		}
 	case "CONFIG":
 		if len(cmd.Args) != 2 {
